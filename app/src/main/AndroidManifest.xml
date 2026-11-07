@@ -1,0 +1,72 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.SET_ALARM"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <queries><intent><action android:name="android.intent.action.MAIN"/></intent></queries>
+
+    <application android:label="Bixby" android:icon="@drawable/ic_bixby"
+        android:theme="@style/Theme.BixbyX" android:allowBackup="false">
+
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Bottom-sheet assistant popup (like real Bixby). Opened by power-button long-press / assist gesture -->
+        <activity android:name=".AssistActivity" android:exported="true"
+            android:theme="@style/Theme.BixbyX.Popup" android:excludeFromRecents="true"
+            android:launchMode="singleTask" android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST"/>
+                <action android:name="android.intent.action.VOICE_COMMAND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Lets BixbyX be picked as the "Digital assistant app" -->
+        <service android:name=".service.BixbyVoiceInteractionService" android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data android:name="android.voice_interaction" android:resource="@xml/voice_interaction"/>
+            <intent-filter><action android:name="android.service.voice.VoiceInteractionService"/></intent-filter>
+        </service>
+        <service android:name=".service.BixbySessionService" android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"/>
+
+        <!-- Floating orb (overlay) -->
+        <service android:name=".service.OverlayService" android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="floating assistant overlay"/>
+        </service>
+
+        <!-- Bixby widget -->
+        <receiver android:name=".service.BixbyWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info"/>
+        </receiver>
+
+        <!-- Shizuku binder provider -->
+        <provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false" android:enabled="true" android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+
+        <!-- AI screen control -->
+        <service android:name=".service.AgentAccessibilityService" android:exported="true"
+            android:label="Bixby Screen Control"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_config"/>
+        </service>
+    </application>
+</manifest>

@@ -1,0 +1,3 @@
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.bixbyx.assistant.service.BixbySessionService"
+    android:supportsAssist="true"/>

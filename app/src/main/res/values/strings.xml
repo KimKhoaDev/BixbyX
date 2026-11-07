@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Bixby</string>
+    <string name="a11y_desc">Lets Bixby read the screen and tap, type and scroll for you when you ask it to do something.</string>
+</resources>
