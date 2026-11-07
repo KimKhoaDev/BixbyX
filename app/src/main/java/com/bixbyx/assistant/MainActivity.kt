@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.*
 import com.bixbyx.assistant.agent.BixbyEngine
 import com.bixbyx.assistant.service.OverlayService

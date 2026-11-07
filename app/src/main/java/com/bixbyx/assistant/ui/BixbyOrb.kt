@@ -17,13 +17,13 @@ import com.bixbyx.assistant.agent.BState
 
 /** The Bixby ring: rotating gradient, breathes when idle, pulses fast while listening, spins while working. */
 @Composable
-fun BixbyOrb(state: BState, size: Dp = 140.dp, modifier: Modifier = Modifier) {
+fun BixbyOrb(state: BState, size: Dp = 140.dp, modifier: Modifier = Modifier,
+             hole: Color = MaterialTheme.colorScheme.background) {
     val t = rememberInfiniteTransition(label = "orb")
     val ms = when (state) { BState.Idle -> 7000; BState.Listening -> 3200; else -> 1300 }
     val rot by t.animateFloat(0f, 360f, infiniteRepeatable(tween(ms, easing = LinearEasing)), label = "rot")
     val pulse by t.animateFloat(0.93f, 1.07f, infiniteRepeatable(
         tween(if (state == BState.Listening) 550 else 2000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
-    val hole = MaterialTheme.colorScheme.background
     val colors = listOf(OneBlue, OnePurple, OnePink, OneCyan, OneBlue)
     Canvas(modifier.size(size)) {
         val r = this.size.minDimension / 2

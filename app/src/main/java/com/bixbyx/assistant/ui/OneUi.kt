@@ -1,6 +1,14 @@
 package com.bixbyx.assistant.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -51,7 +59,7 @@ fun SectionLabel(t: String) = Text(t, Modifier.padding(start = 8.dp, top = 8.dp)
 fun SwitchRow(title: String, sub: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title, fontSize = 16.sp); Text(sub, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(.55f)) }
-        Switch(checked, onChange)
+        OneSwitch(checked, onChange)
     }
 }
 
@@ -62,5 +70,16 @@ fun StatusRow(title: String, sub: String, ok: Boolean, action: String, onClick: 
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) { Text(title, fontSize = 16.sp); Text(sub, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(.55f)) }
         if (!ok) TextButton(onClick) { Text(action) }
+    }
+}
+
+/** One UI switch: slim pill track, white thumb that springs across. */
+@Composable
+fun OneSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
+    val track by animateColorAsState(if (checked) OneBlue else Color(0xFFB4B4BA), tween(220), label = "track")
+    val x by animateDpAsState(if (checked) 23.dp else 3.dp, spring(dampingRatio = .7f, stiffness = 500f), label = "thumb")
+    Box(Modifier.size(52.dp, 30.dp).clip(CircleShape).background(track)
+        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onChange(!checked) }) {
+        Box(Modifier.offset(x = x).align(Alignment.CenterStart).size(24.dp).clip(CircleShape).background(Color.White))
     }
 }
