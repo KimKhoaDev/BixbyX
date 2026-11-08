@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -42,6 +43,11 @@ import androidx.compose.ui.unit.sp
 val OneGreen = Color(0xFF34C759)
 val OneOrange = Color(0xFFFF9500)
 val OneRed = Color(0xFFFF3B30)
+
+val OneDarkSurface = Color(0xFF1C1C1E)
+val OneDarkSurfaceVariant = Color(0xFF2C2C2E)
+val OneLightSurface = Color(0xFFF6F6F6)
+val OneLightSurfaceVariant = Color(0xFFEDEDED)
 
 /** One UI page: tall viewing area with a big title that collapses, calm background, rounded groups. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,6 +73,14 @@ fun OneUiPage(title: String, onBack: (() -> Unit)? = null, bottomBar: @Composabl
 fun OneCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), content = content)
+    }
+}
+
+/** Miuix card: squircle container on surface variant. */
+@Composable
+fun MiuixCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), content = content)
     }
 }
 
@@ -131,20 +145,29 @@ fun SwitchRow(title: String, sub: String, icon: ImageVector, tint: Color, checke
 
 data class Tab(val label: String, val icon: ImageVector)
 
-/** Bottom tab bar: rounded top, selected tab gets a soft blue pill. */
+/** Miuix floating navigation bar: a floating rounded container with a soft shadow. */
 @Composable
-fun OneTabBar(tabs: List<Tab>, selected: Int, onSelect: (Int) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(28.dp, 28.dp, 0.dp, 0.dp), shadowElevation = 10.dp) {
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 10.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            tabs.forEachIndexed { i, t ->
-                val sel = i == selected
-                val bg by animateColorAsState(if (sel) OneBlue.copy(.14f) else Color.Transparent, tween(220), label = "tb")
-                val fg by animateColorAsState(if (sel) OneBlue else MaterialTheme.colorScheme.onSurface.copy(.6f), tween(220), label = "tf")
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(bg).clickable { onSelect(i) }.padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    val pop by animateFloatAsState(if (sel) 1.18f else 1f, spring(dampingRatio = .4f, stiffness = 400f), label = "pop")
-                    Icon(t.icon, t.label, tint = fg, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop })
-                    Text(t.label, fontSize = 12.sp, color = fg, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
+fun MiuixFloatingNavigationBar(tabs: List<Tab>, selected: Int, onSelect: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, bottom = 16.dp)) {
+        Box(
+            Modifier.fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(30.dp))
+                .dropShadow(shape = RoundedCornerShape(30.dp),
+                    shadow = androidx.compose.ui.graphics.shadow.Shadow(radius = 16.dp, color = Color.Black, alpha = 0.12f))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            contentAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                tabs.forEachIndexed { i, t ->
+                    val sel = i == selected
+                    val fg by animateColorAsState(if (sel) OneBlue else MaterialTheme.colorScheme.onSurface.copy(.5f), tween(220), label = "tb$i")
+                    Column(Modifier.weight(1f).clickable { onSelect(i) }.padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        val pop by animateFloatAsState(if (sel) 1.15f else 1f, spring(dampingRatio = .5f, stiffness = 450f), label = "pop$i")
+                        Icon(t.icon, t.label, tint = fg, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop }.size(26.dp))
+                        Text(t.label, fontSize = 11.sp, color = fg, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
