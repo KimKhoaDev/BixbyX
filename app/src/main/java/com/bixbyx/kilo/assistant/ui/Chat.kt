@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -66,7 +67,7 @@ fun QuickChips(onPick: (String) -> Unit = ::runQuick) {
             LaunchedEffect(Unit) { kotlinx.coroutines.delay(i * 60L); shown = true }
             AnimatedVisibility(shown, enter = fadeIn() + slideInHorizontally { it / 2 } + scaleIn(initialScale = .8f)) {
                 Text(c, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surface)
+                    modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface)
                         .clickable { onPick(c) }.padding(horizontal = 16.dp, vertical = 10.dp))
             }
         }

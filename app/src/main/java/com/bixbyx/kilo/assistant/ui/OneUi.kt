@@ -83,6 +83,14 @@ fun MiuixCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
     }
 }
 
+/** Miuix group: squircle container that holds a list of rows (like the Settings app). */
+@Composable
+fun MiuixGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(vertical = 4.dp), content = content)
+    }
+}
+
 /** A rounded group of list rows (like the Settings app). Rows pad themselves. */
 @Composable
 fun OneGroup(content: @Composable ColumnScope.() -> Unit) {

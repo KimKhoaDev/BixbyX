@@ -51,7 +51,14 @@ object BixbyEngine {
         chats.value = list.sortedByDescending { it.updated }
         currentId.value = chats.value.first().id
         messages.value = chats.value.first().messages
+        // Auto-grant every missing permission via Shizuku so the agent can actually act.
+        if (ShizukuShell.granted()) {
+            scope.launch { val r = Permissions.grantAll(app); r.forEach { (p, res) -> if (!res.contains("OK") && !res.contains("already")) notify("$p → $res") } }
+        }
     }
+
+    /** Manually trigger Shizuku permission grants (called from Settings / on resume). */
+    fun grantPermissions() { if (ShizukuShell.granted()) { scope.launch { Permissions.grantAll(app).forEach { (p, res) -> notify("$p → $res") } } } else { notify("Shizuku not granted yet") } }
 
     // ------------------------------------------------------------ chats manager
     private fun newId() = java.util.UUID.randomUUID().toString().take(8)

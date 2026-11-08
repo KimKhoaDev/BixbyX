@@ -31,17 +31,17 @@ fun ToolsScreen() {
 private fun ToolsHome(open: (Tool) -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     OneUiPage("Tools") {
-        item { Stagger(0) { OneGroup {
+        item { Stagger(0) { MiuixGroup {
             OneRow("Diagnostics", "Battery, storage, memory â€” with an AI check", Icons.Default.MonitorHeart, OneGreen, { open(Tool.Diagnostics) }) { Chevron() }
             OneDivider()
             OneRow("Interpreter", "Translate speech and text", Icons.Default.Translate, OnePurple, { open(Tool.Interpreter) }) { Chevron() }
         } } }
-        item { Stagger(1) { OneGroup {
+        item { Stagger(1) { MiuixGroup {
             OneRow("Read my screen aloud", "Bixby tells you what's on screen", Icons.Default.RecordVoiceOver, OneBlue, { BixbyEngine.describeScreen() })
             OneDivider()
             OneRow("Test voice", "Hear how Bixby sounds", Icons.Default.VolumeUp, OneOrange, { BixbyEngine.testVoice() })
         } } }
-        item { Stagger(2) { OneGroup {
+        item { Stagger(2) { MiuixGroup {
             OneRow("Clear all chats", "Deletes every conversation", Icons.Default.Delete, OneRed, { confirm = true })
         } } }
     }

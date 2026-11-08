@@ -110,7 +110,7 @@ fun SettingsScreen() {
         // ------------------------------------------------ AI provider
         item { Stagger(0) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("AI provider")
-            OneCard {
+            MiuixCard {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Provider.values().forEach { p -> FilterChip(provider == p, { provider = p }, { Text(p.label) }) }
                 }
@@ -137,7 +137,7 @@ fun SettingsScreen() {
         // ------------------------------------------------ voice
         item { Stagger(1) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Voice Â· Fish Audio")
-            OneCard {
+            MiuixCard {
                 Text("Natural speech and reliable voice recognition. Without a key Bixby uses your phone's own engines, which many Xiaomi phones don't have.",
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(.6f))
                 OutlinedTextField(fishKey, { fishKey = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Fish Audio API key") },
@@ -157,7 +157,7 @@ fun SettingsScreen() {
         // ------------------------------------------------ assistant
         item { Stagger(2) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Summon Bixby")
-            key(tick) { OneGroup {
+            key(tick) { MiuixGroup {
                 OneRow("Default digital assistant", if (isDefaultAssistant(ctx)) "Bixby is your assistant" else "Tap to choose Bixby", Icons.Default.AutoAwesome, OneBlue,
                     { go(ctx, Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }) { StatusText(isDefaultAssistant(ctx)) }
                 OneDivider()
@@ -175,7 +175,7 @@ fun SettingsScreen() {
         // ------------------------------------------------ permissions
         item { Stagger(3) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Permissions")
-            key(tick) { OneGroup {
+            key(tick) { MiuixGroup {
                 OneRow("Screen control", "Accessibility service: tap, type, scroll, read the screen", Icons.Default.Accessibility, OneBlue,
                     { go(ctx, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) { StatusText(AgentAccessibilityService.running()) }
                 OneDivider()
@@ -200,7 +200,7 @@ fun SettingsScreen() {
         // ------------------------------------------------ features
         item { Stagger(4) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Bixby features")
-            OneGroup {
+            MiuixGroup {
                 SwitchRow("Floating Bixby icon", "Animated icon over every app", Icons.Default.BubbleChart, OneBlue, orb) {
                     orb = it; prefs.orbEnabled = it; if (it) OverlayService.start(ctx) else OverlayService.stop(ctx) }
                 OneDivider()
@@ -217,7 +217,7 @@ fun SettingsScreen() {
         // ------------------------------------------------ theme
         item { Stagger(5) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Theme")
-            OneCard {
+            MiuixCard {
                 Choice("Dark / light mode", listOf("system" to "System", "dark" to "Dark", "light" to "Light"), darkMode) { darkMode = it; saveTheme() }
             }
         } } }

@@ -52,7 +52,7 @@ fun AboutScreen() {
             Text("Version $version", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(.55f))
         } }
 
-        item { Stagger(0) { OneGroup {
+        item { Stagger(0) { MiuixGroup {
             OneRow("Software update", when (val u = upd) {
                 Upd.Idle -> "Tap to check for a new version"; Upd.Checking -> "Checkingâ€¦"; Upd.Latest -> "You're up to date"
                 Upd.Failed -> "Couldn't reach GitHub"; is Upd.Available -> "${u.r.tag} is available" },
@@ -74,13 +74,13 @@ fun AboutScreen() {
             }
         } } }
 
-        item { Stagger(1) { OneGroup {
+        item { Stagger(1) { MiuixGroup {
             OneRow("Source code", "github.com/${Updater.REPO}", Icons.Default.Code, OnePurple, { open(ctx, "https://github.com/${Updater.REPO}") }) { Chevron() }
             OneDivider()
             OneRow("Release notes", "Every build is published automatically", Icons.Default.Notes, OneGreen, { open(ctx, "https://github.com/${Updater.REPO}/releases") }) { Chevron() }
         } } }
 
-        item { Stagger(2) { OneCard {
+        item { Stagger(2) { MiuixCard {
             Text("Credits", fontSize = 16.sp)
             Text("AI screen-control loop based on private-agent by orailnoor. Design inspired by Samsung One UI. Voice by Fish Audio. " +
                 "Bixby, One UI, Xiaomi and HyperOS belong to their owners; this is an independent project, not affiliated with Samsung, Xiaomi or Fish Audio.",

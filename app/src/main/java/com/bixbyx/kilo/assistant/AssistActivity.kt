@@ -23,6 +23,7 @@ class AssistActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         BixbyEngine.init(this)
+        BixbyEngine.grantPermissions()
         val listen = intent.getBooleanExtra("listen", false)
         // grab what's on screen right now (before this popup takes focus) and say it
         val describing = listen && BixbyEngine.prefs.autoDescribe && AgentAccessibilityService.running()

@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         BixbyEngine.init(this)
+        BixbyEngine.grantPermissions()
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
             .launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
         if (BixbyEngine.prefs.orbEnabled) OverlayService.start(this)

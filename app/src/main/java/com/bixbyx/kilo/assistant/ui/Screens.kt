@@ -81,14 +81,14 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
         item { Meter("Uptime", "${"%.1f".format(h.uptimeH)} h since restart", (h.uptimeH / 168f).coerceIn(0f, 1f), h.uptimeH > 168) }
         item { Button({ busy = true; scope.launch { report = runCatching { BixbyEngine.diagnose(h) }.getOrElse { "âš  ${it.message}" }; busy = false } },
             Modifier.fillMaxWidth().height(52.dp)) { Text(if (busy) "Analyzingâ€¦" else "Ask Bixby to analyze") } }
-        if (report.isNotEmpty()) item { OneCard { Text(report, fontSize = 15.sp) } }
+        if (report.isNotEmpty()) item { MiuixCard { Text(report, fontSize = 15.sp) } }
     }
 }
 
 @Composable
 private fun Meter(title: String, value: String, frac: Float, warn: Boolean) {
     val anim by androidx.compose.animation.core.animateFloatAsState(frac, androidx.compose.animation.core.tween(900), label = "m")
-    OneCard {
+    MiuixCard {
         Row { Text(title, Modifier.weight(1f), fontSize = 16.sp); Text(value, fontSize = 14.sp, color = if (warn) androidx.compose.ui.graphics.Color(0xFFFF3B30) else MaterialTheme.colorScheme.onSurface.copy(.6f)) }
         Spacer(Modifier.height(10.dp))
         LinearProgressIndicator({ anim }, Modifier.fillMaxWidth().height(8.dp), color = if (warn) androidx.compose.ui.graphics.Color(0xFFFF3B30) else OneBlue,
@@ -111,14 +111,14 @@ fun InterpreterScreen(onBack: () -> Unit) {
     OneUiPage("Interpreter", onBack) {
         item { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(langs) { l ->
             FilterChip(lang == l, { lang = l; prefs.targetLang = l }, { Text(l) }) } } }
-        item { OneCard {
+        item { MiuixCard {
             OutlinedTextField(input, { input = it }, Modifier.fillMaxWidth(), label = { Text("Speak or type") }, minLines = 3)
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton({ BixbyEngine.listenInto { input = it; go() } }) { Icon(Icons.Default.Mic, null); Spacer(Modifier.width(6.dp)); Text("Speak") }
                 Button(::go) { Text(if (busy) "Translatingâ€¦" else "Translate to $lang") }
             }
         } }
-        if (out.isNotEmpty()) item { OneCard {
+        if (out.isNotEmpty()) item { MiuixCard {
             Text(out, fontSize = 20.sp)
             TextButton({ BixbyEngine.speak(out) }) { Icon(Icons.Default.VolumeUp, null); Spacer(Modifier.width(6.dp)); Text("Play") }
         } }

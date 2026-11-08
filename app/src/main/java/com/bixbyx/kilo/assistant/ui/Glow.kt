@@ -88,7 +88,7 @@ fun StepsCard(steps: List<Step>, state: BState, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(true) }
     LaunchedEffect(busy) { expanded = busy }
     val arrow by animateFloatAsState(if (expanded) 180f else 0f, spring(dampingRatio = .6f), label = "arrow")
-    OneCard(modifier.animateContentSize(spring(dampingRatio = .8f, stiffness = 400f))) {
+    MiuixCard(modifier.animateContentSize(spring(dampingRatio = .8f, stiffness = 400f))) {
         Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
             if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             else Icon(Icons.Default.Check, null, tint = OneGreen, modifier = Modifier.size(20.dp))
