@@ -1,6 +1,7 @@
-<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sessionService="com.bixbyx.assistant.service.BixbySessionService"
-    android:recognitionService="com.bixbyx.assistant.service.BixbyRecognitionService"
-    android:settingsActivity="com.bixbyx.assistant.MainActivity"
+﻿<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.bixbyx.kilo.assistant.service.BixbySessionService"
+    android:recognitionService="com.bixbyx.kilo.assistant.service.BixbyRecognitionService"
+    android:settingsActivity="com.bixbyx.kilo.assistant.MainActivity"
     android:supportsAssist="true"
     android:supportsLaunchVoiceAssistFromKeyguard="true"/>
+
