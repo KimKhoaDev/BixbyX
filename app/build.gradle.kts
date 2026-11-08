@@ -42,6 +42,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
+    // Miuix Compose (floating nav bar, top bar, cards, preference rows) — built via JitPack from compose-miuix-ui/miuix
+    implementation("com.github.compose-miuix-ui:miuix-ui:b59ed57")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
