@@ -1,3 +1,6 @@
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService="com.bixbyx.assistant.service.BixbySessionService"
-    android:supportsAssist="true"/>
+    android:recognitionService="com.bixbyx.assistant.service.BixbyRecognitionService"
+    android:settingsActivity="com.bixbyx.assistant.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true"/>

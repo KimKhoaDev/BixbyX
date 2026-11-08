@@ -8,13 +8,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import com.bixbyx.assistant.agent.BixbyEngine
 import com.bixbyx.assistant.service.OverlayService
 import com.bixbyx.assistant.ui.*
-
-enum class Route { Home, Settings, Diagnostics, Interpreter }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,20 +32,29 @@ class MainActivity : ComponentActivity() {
         if (BixbyEngine.prefs.orbEnabled) OverlayService.start(this)
         setContent {
             OneUITheme {
-                var route by remember { mutableStateOf(Route.Home) }
-                BackHandler(route != Route.Home) { route = Route.Home }
-                AnimatedContent(route, transitionSpec = {
-                    // One UI style: new page slides in from the right with a soft fade, old page drifts left
-                    if (targetState != Route.Home)
-                        (slideInHorizontally(spring(stiffness = 400f)) { it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { -it / 5 } + fadeOut())
-                    else (slideInHorizontally { -it / 5 } + fadeIn()) togetherWith (slideOutHorizontally { it / 3 } + fadeOut())
-                }, label = "nav") { r ->
-                    val back = { route = Route.Home }
-                    when (r) {
-                        Route.Home -> HomeScreen({ route = Route.Settings }, { route = Route.Diagnostics }, { route = Route.Interpreter })
-                        Route.Settings -> SettingsScreen(back)
-                        Route.Diagnostics -> DiagnosticsScreen(back)
-                        Route.Interpreter -> InterpreterScreen(back)
+                val tabs = remember { listOf(Tab("Bixby", Icons.Default.AutoAwesome), Tab("Chats", Icons.Default.ChatBubble),
+                    Tab("Tools", Icons.Default.Apps), Tab("Settings", Icons.Default.Settings), Tab("About", Icons.Default.Info)) }
+                var tab by rememberSaveable { mutableIntStateOf(0) }
+                BackHandler(tab != 0) { tab = 0 }
+                val imeUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+                Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).imePadding()) {
+                    Box(Modifier.weight(1f)) {
+                        AnimatedContent(tab, transitionSpec = {
+                            val dir = if (targetState > initialState) 1 else -1
+                            (fadeIn(tween(260)) + slideInHorizontally(tween(300)) { dir * it / 8 }) togetherWith
+                                (fadeOut(tween(140)) + slideOutHorizontally(tween(300)) { -dir * it / 8 })
+                        }, label = "tabs") { t ->
+                            when (t) {
+                                0 -> HomeScreen()
+                                1 -> ChatsScreen { tab = 0 }
+                                2 -> ToolsScreen()
+                                3 -> SettingsScreen()
+                                else -> AboutScreen()
+                            }
+                        }
+                    }
+                    AnimatedVisibility(!imeUp, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                        OneTabBar(tabs, tab) { tab = it }
                     }
                 }
             }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -34,123 +35,33 @@ import com.bixbyx.assistant.service.OverlayService
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(openSettings: () -> Unit, openDiag: () -> Unit, openInterp: () -> Unit) {
+fun HomeScreen() {
     val msgs by BixbyEngine.messages.collectAsState()
     val state by BixbyEngine.state.collectAsState()
+    val steps by BixbyEngine.steps.collectAsState()
     val status by BixbyEngine.status.collectAsState()
-    OneUiPage("Bixby", bottomBar = { Column(Modifier.imePadding()) { InputBar({ BixbyEngine.send(it) }) } }) {
+    val chats by BixbyEngine.chats.collectAsState()
+    val cur by BixbyEngine.currentId.collectAsState()
+    val list = rememberLazyListState()
+    LaunchedEffect(msgs.size, steps.size) { list.animateScrollToItem((msgs.size + steps.size + 3).coerceAtLeast(0)) }
+    val title = chats.firstOrNull { it.id == cur }?.title?.takeIf { it != "New chat" } ?: "Bixby"
+    OneUiPage(title, bottomBar = { InputBar({ BixbyEngine.send(it) }) }, state = list, actions = {
+        IconButton({ BixbyEngine.newChat() }) { Icon(Icons.Default.Add, "New chat") }
+    }) {
         item {
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 BixbyOrb(state, 150.dp)
                 Spacer(Modifier.height(8.dp))
-                Text(when (state) { BState.Listening -> "Listening…"; BState.Thinking -> "Thinking…"
-                    BState.Working -> status.ifBlank { "Working…" }; else -> "Hi, how can I help?" }, fontSize = 20.sp)
+                AnimatedContent(when (state) { BState.Listening -> "Listening…"; BState.Thinking -> status.ifBlank { "Thinking…" }
+                    BState.Working -> status.ifBlank { "Working…" }; else -> "Hi, how can I help?" },
+                    transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut()) },
+                    label = "greet") { Text(it, fontSize = 20.sp) }
             }
         }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            FeatureTile("Diagnostics", Icons.Default.MonitorHeart, Modifier.weight(1f), openDiag)
-            FeatureTile("Interpreter", Icons.Default.Translate, Modifier.weight(1f), openInterp)
-            FeatureTile("Settings", Icons.Default.Settings, Modifier.weight(1f), openSettings)
-        } }
-        if (msgs.isEmpty()) item { QuickChips { BixbyEngine.send(it) } }
-        messageItems(msgs.takeLast(30))
-        if (msgs.isNotEmpty()) item { TextButton({ BixbyEngine.clear() }) { Text("Clear conversation history") } }
+        if (steps.isNotEmpty()) item { StepsCard(steps, state) }
+        if (msgs.isEmpty() && steps.isEmpty()) item { QuickChips() }
+        messageItems(msgs.takeLast(40))
     }
-}
-
-@Composable
-private fun FeatureTile(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, m: Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = m, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.padding(vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = OneBlue); Spacer(Modifier.height(6.dp)); Text(label, fontSize = 13.sp)
-        }
-    }
-}
-
-// ---------------------------------------------------------------- Settings
-@Composable
-fun SettingsScreen(onBack: () -> Unit) {
-    val ctx = LocalContext.current
-    val prefs = BixbyEngine.prefs
-    var tick by remember { mutableIntStateOf(0) }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
-    var provider by remember { mutableStateOf(prefs.provider) }
-    var apiKey by remember(provider) { mutableStateOf(prefs.key(provider)) }
-    var model by remember(provider) { mutableStateOf(prefs.model(provider)) }
-    var url by remember { mutableStateOf(prefs.customUrl) }
-    var orb by remember { mutableStateOf(prefs.orbEnabled) }
-    var gesture by remember { mutableStateOf(prefs.gestureWake) }
-    var speak by remember { mutableStateOf(prefs.speak) }
-    var models by remember { mutableStateOf<List<String>>(emptyList()) }
-    var testMsg by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    fun save() { prefs.provider = provider; prefs.setKey(provider, apiKey); prefs.setModel(provider, model); prefs.customUrl = url }
-
-    OneUiPage("Settings", onBack) {
-        item { SectionLabel("AI provider") }
-        item { OneCard {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Provider.values().forEach { p -> FilterChip(provider == p, { provider = p }, { Text(p.label) }) }
-            }
-            if (provider == Provider.CUSTOM) OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Base URL (OpenAI-compatible)") }, singleLine = true)
-            OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("${provider.label} API key") },
-                visualTransformation = PasswordVisualTransformation(), singleLine = true)
-            OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Model") }, singleLine = true)
-            if (models.isNotEmpty()) LazyRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(models.take(40)) { m -> AssistChip({ model = m }, { Text(m, maxLines = 1) }) }
-            }
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton({ save(); scope.launch { models = runCatching { LlmClient.models(prefs) }.getOrDefault(emptyList())
-                    testMsg = if (models.isEmpty()) "Couldn't list models (check key / URL)" else "${models.size} models found" } }) { Text("Fetch models") }
-                Button({ save(); testMsg = "Testing…"; scope.launch { testMsg = runCatching {
-                    "✓ " + LlmClient.chat(prefs, listOf("user" to "Reply with the word OK")).take(40) }.getOrElse { "✗ ${it.message}" } } }) { Text("Save & test") }
-            }
-            if (testMsg.isNotEmpty()) Text(testMsg, Modifier.padding(top = 6.dp), fontSize = 13.sp)
-            Text("Kilo AI: key from app.kilo.ai · OpenRouter: openrouter.ai/keys (free models end in :free)", Modifier.padding(top = 6.dp),
-                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(.5f))
-        } }
-
-        item { SectionLabel("Permissions") }
-        item { key(tick) { OneCard {
-            StatusRow("Screen control", "Accessibility service lets Bixby tap, type and scroll", AgentAccessibilityService.running(), "Enable") {
-                ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            StatusRow("Display over other apps", "Floating orb and the Bixby panel", Settings.canDrawOverlays(ctx), "Allow") {
-                ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            StatusRow("Microphone", "Voice commands", ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED, "Allow") {
-                ctx.startActivity(appDetails(ctx)) }
-            StatusRow("Shizuku", if (ShizukuShell.running()) "Running · grant BixbyX access" else "Install & start Shizuku (adb or wireless debugging)", ShizukuShell.granted(),
-                if (ShizukuShell.running()) "Grant" else "Get") {
-                if (ShizukuShell.running()) { ShizukuShell.request(); tick++ }
-                else ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            StatusRow("Modify system settings", "Brightness without Shizuku", Settings.System.canWrite(ctx), "Allow") {
-                ctx.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            StatusRow("Xiaomi: Autostart & battery", "Set Autostart ON and Battery saver to 'No restrictions' so HyperOS doesn't kill Bixby", false, "Open") { openXiaomi(ctx) }
-        } } }
-
-        item { SectionLabel("Bixby features") }
-        item { OneCard {
-            SwitchRow("Floating Bixby orb", "Always-available orb over every app", orb) { orb = it; prefs.orbEnabled = it
-                if (it) OverlayService.start(ctx) else OverlayService.stop(ctx) }
-            SwitchRow("Gesture wake-up (experimental)", "Raise the phone to your mouth to talk, no hotword. Needs the orb on.", gesture) {
-                gesture = it; prefs.gestureWake = it; if (orb) { OverlayService.stop(ctx); OverlayService.start(ctx) } }
-            SwitchRow("Speak replies", "Bixby reads answers aloud", speak) { speak = it; prefs.speak = it }
-        } }
-        item { SectionLabel("Make Bixby your assistant") }
-        item { OneCard {
-            Text("Settings → Apps → Default apps → Digital assistant app → Bixby. Then long-press the power button (or use the assist gesture) to summon it. You can also add the Bixby widget from the home screen widgets.", fontSize = 14.sp)
-            TextButton({ ctx.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }) { Text("Open assistant settings") }
-        } }
-    }
-}
-
-private fun appDetails(ctx: Context) = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-private fun openXiaomi(ctx: Context) {
-    val tries = listOf(
-        Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
-        Intent("miui.intent.action.APP_PERM_EDITOR").setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity").putExtra("extra_pkgname", ctx.packageName))
-    for (i in tries) if (runCatching { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
-    ctx.startActivity(appDetails(ctx))
 }
 
 // ---------------------------------------------------------------- Diagnostics

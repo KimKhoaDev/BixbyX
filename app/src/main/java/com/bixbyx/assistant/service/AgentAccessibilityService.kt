@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -18,16 +19,43 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     private var last: List<El> = emptyList()
-    override fun onServiceConnected() { instance = this }
+    private var upDown = false
+    private var downDown = false
+    private var fired = false
+    override fun onServiceConnected() { instance = this; com.bixbyx.assistant.agent.BixbyEngine.init(this) }
+
+    /** Optional shortcut: press Volume Up + Volume Down together to summon Bixby. */
+    override fun onKeyEvent(e: KeyEvent): Boolean {
+        if (!com.bixbyx.assistant.agent.BixbyEngine.prefs.volumeCombo) return false
+        val down = e.action == KeyEvent.ACTION_DOWN
+        when (e.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> upDown = down
+            KeyEvent.KEYCODE_VOLUME_DOWN -> downDown = down
+            else -> return false
+        }
+        if (upDown && downDown && !fired) { fired = true; openBixby(this, true) }
+        if (!upDown && !downDown) fired = false
+        return false
+    }
     override fun onAccessibilityEvent(e: AccessibilityEvent?) {}
     override fun onInterrupt() {}
     override fun onUnbind(i: android.content.Intent?): Boolean { instance = null; return super.onUnbind(i) }
 
-    fun currentPackage(): String = rootInActiveWindow?.packageName?.toString() ?: "?"
+    /** The window the user is really looking at: skips Bixby's own popup/overlay windows. */
+    private fun userRoot(): AccessibilityNodeInfo? {
+        val active = rootInActiveWindow
+        if (active != null && active.packageName?.toString() != packageName) return active
+        return windows.filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+            .sortedByDescending { it.layer }
+            .firstNotNullOfOrNull { w -> w.root?.takeIf { it.packageName?.toString() != packageName } } ?: active
+    }
+
+    fun currentPackage(): String = userRoot()?.packageName?.toString() ?: "?"
+    fun labelFor(id: Int): String = last.firstOrNull { it.id == id }?.label?.take(30).orEmpty()
 
     /** Numbered list of what is on screen, the same idea as private-agent's screen dump. */
     fun dump(): String {
-        val root = rootInActiveWindow ?: return "(no window)"
+        val root = userRoot() ?: return "(no window)"
         val out = mutableListOf<El>()
         walk(root, out)
         last = out

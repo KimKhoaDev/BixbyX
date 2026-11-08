@@ -8,13 +8,19 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <queries><intent><action android:name="android.intent.action.MAIN"/></intent></queries>
+    <queries>
+        <intent><action android:name="android.intent.action.MAIN"/></intent>
+        <intent><action android:name="android.intent.action.TTS_SERVICE"/></intent>
+        <intent><action android:name="android.speech.RecognitionService"/></intent>
+        <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH"/></intent>
+    </queries>
 
-    <application android:label="Bixby" android:icon="@drawable/ic_bixby"
+    <application android:label="Bixby" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.BixbyX" android:allowBackup="false">
 
         <activity android:name=".MainActivity" android:exported="true">
@@ -41,12 +47,19 @@
             <meta-data android:name="android.voice_interaction" android:resource="@xml/voice_interaction"/>
             <intent-filter><action android:name="android.service.voice.VoiceInteractionService"/></intent-filter>
         </service>
+        <service android:name=".service.BixbyRecognitionService" android:exported="true">
+            <intent-filter><action android:name="android.speech.RecognitionService"/></intent-filter>
+        </service>
+        <service android:name=".service.BixbyTile" android:exported="true" android:label="Bixby"
+            android:icon="@drawable/ic_stat_bixby" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter>
+        </service>
         <service android:name=".service.BixbySessionService" android:exported="true"
             android:permission="android.permission.BIND_VOICE_INTERACTION"/>
 
         <!-- Floating orb (overlay) -->
         <service android:name=".service.OverlayService" android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|microphone">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="floating assistant overlay"/>
         </service>
 
