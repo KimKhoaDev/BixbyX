@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     AnimatedVisibility(!imeUp, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                        OneTabBar(tabs, tab) { tab = it }
+                        MiuixFloatingTabBar(tabs, tab) { tab = it }
                     }
                 }
             }

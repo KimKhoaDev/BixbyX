@@ -131,21 +131,21 @@ fun SwitchRow(title: String, sub: String, icon: ImageVector, tint: Color, checke
 
 data class Tab(val label: String, val icon: ImageVector)
 
-/** Bottom tab bar: rounded top, selected tab gets a soft blue pill. */
+/** Miuix floating navigation bar used as the bottom tab bar (Bixby, Chats, Tools, Settings, About). */
 @Composable
-fun OneTabBar(tabs: List<Tab>, selected: Int, onSelect: (Int) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(28.dp, 28.dp, 0.dp, 0.dp), shadowElevation = 10.dp) {
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 10.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            tabs.forEachIndexed { i, t ->
-                val sel = i == selected
-                val bg by animateColorAsState(if (sel) OneBlue.copy(.14f) else Color.Transparent, tween(220), label = "tb")
-                val fg by animateColorAsState(if (sel) OneBlue else MaterialTheme.colorScheme.onSurface.copy(.6f), tween(220), label = "tf")
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(bg).clickable { onSelect(i) }.padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    val pop by animateFloatAsState(if (sel) 1.18f else 1f, spring(dampingRatio = .4f, stiffness = 400f), label = "pop")
-                    Icon(t.icon, t.label, tint = fg, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop })
-                    Text(t.label, fontSize = 12.sp, color = fg, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
-                }
+fun MiuixFloatingTabBar(tabs: List<Tab>, selected: Int, onSelect: (Int) -> Unit) {
+    top.yukonga.miuix.kmp.theme.MiuixTheme {
+        top.yukonga.miuix.kmp.basic.FloatingNavigationBar(
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+            showDivider = false,
+        ) {
+            tabs.forEachIndexed { index, tab ->
+                top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem(
+                    selected = index == selected,
+                    onClick = { onSelect(index) },
+                    icon = tab.icon,
+                    label = tab.label,
+                )
             }
         }
     }
