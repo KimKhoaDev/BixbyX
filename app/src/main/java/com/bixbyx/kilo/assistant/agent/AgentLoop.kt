@@ -82,13 +82,13 @@ Rules:
     }
 
     private fun actArgs(a: Act): Map<String, Any?> =
-        mapOfNotNull(
-            "text" to a.text.takeIf { it.isNotBlank() },
-            "path" to a.path.takeIf { it.isNotBlank() },
-            "oldText" to a.oldText.takeIf { it.isNotBlank() },
-            "newText" to a.newText.takeIf { it.isNotBlank() },
-            "value" to a.value.takeIf { it >= 0 }
-        )
+        buildMap {
+            if (a.text.isNotBlank()) put("text", a.text)
+            if (a.path.isNotBlank()) put("path", a.path)
+            if (a.oldText.isNotBlank()) put("oldText", a.oldText)
+            if (a.newText.isNotBlank()) put("newText", a.newText)
+            if (a.value >= 0) put("value", a.value)
+        }
 
     private fun isOk(action: String, res: String): Boolean =
         when {

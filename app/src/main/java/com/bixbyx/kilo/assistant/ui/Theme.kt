@@ -13,6 +13,7 @@ val OnePink = Color(0xFFFF5FA2)
 val OneCyan = Color(0xFF35D0E8)
 
 /** "system" | "dark" | "light" */
+@Composable
 fun isDark(mode: String): Boolean = when (mode) {
     "dark" -> true
     "light" -> false
@@ -20,7 +21,7 @@ fun isDark(mode: String): Boolean = when (mode) {
 }
 
 @Composable
-fun OneUITheme(content: @Composable () -> Unit, darkMode: String = "system") {
+fun OneUITheme(darkMode: String = "system", content: @Composable () -> Unit) {
     val dark = isDark(darkMode)
     val cs = if (dark) darkColorScheme(primary = OneBlue, background = Color(0xFF000000), surface = Color(0xFF1C1C1E),
         surfaceVariant = Color(0xFF2C2C2E), onBackground = Color.White, onSurface = Color.White)
@@ -29,4 +30,3 @@ fun OneUITheme(content: @Composable () -> Unit, darkMode: String = "system") {
     MaterialTheme(colorScheme = cs, shapes = Shapes(
         small = RoundedCornerShape(14.dp), medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(26.dp)), content = content)
 }
-

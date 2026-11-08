@@ -148,21 +148,18 @@ data class Tab(val label: String, val icon: ImageVector)
 /** Miuix floating navigation bar: a floating rounded container with a soft shadow. */
 @Composable
 fun MiuixFloatingNavigationBar(tabs: List<Tab>, selected: Int, onSelect: (Int) -> Unit) {
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, bottom = 16.dp)) {
-        Box(
-            Modifier.fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(30.dp))
-                .dropShadow(shape = RoundedCornerShape(30.dp),
-                    shadow = androidx.compose.ui.graphics.shadow.Shadow(radius = 16.dp, color = Color.Black, alpha = 0.12f))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            contentAlignment = Alignment.CenterHorizontally
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 24.dp, end = 24.dp, bottom = 16.dp)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(30.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 10.dp,
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 tabs.forEachIndexed { i, t ->
                     val sel = i == selected
                     val fg by animateColorAsState(if (sel) OneBlue else MaterialTheme.colorScheme.onSurface.copy(.5f), tween(220), label = "tb$i")
-                    Column(Modifier.weight(1f).clickable { onSelect(i) }.padding(vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.weight(1f).clickable { onSelect(i) }.padding(vertical = 6.dp)) {
                         val pop by animateFloatAsState(if (sel) 1.15f else 1f, spring(dampingRatio = .5f, stiffness = 450f), label = "pop$i")
                         Icon(t.icon, t.label, tint = fg, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop }.size(26.dp))
                         Text(t.label, fontSize = 11.sp, color = fg, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,

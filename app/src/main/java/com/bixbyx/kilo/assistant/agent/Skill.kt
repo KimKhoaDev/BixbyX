@@ -15,10 +15,10 @@ import java.io.File
 data class SkillResult(val ok: Boolean, val text: String)
 
 /** One parameter a skill accepts, used both for validation and for rendering the skill into the LLM prompt. */
-sealed class SkillParam(val name: String, val type: String, val required: Boolean, val desc: String) {
-    data class Str(val name: String, override val required: Boolean = true, override val desc: String = "") : SkillParam(name, "string", required, desc)
-    data class Int(val name: String, override val required: Boolean = false, override val desc: String = "") : SkillParam(name, "integer", required, desc)
-    data class Bool(val name: String, override val required: Boolean = false, override val desc: String = "") : SkillParam(name, "boolean", required, desc)
+sealed class SkillParam(open val name: String, open val type: String, open val required: Boolean, open val desc: String) {
+    data class Str(override val name: String, override val required: Boolean = true, override val desc: String = "") : SkillParam(name, "string", required, desc)
+    data class Int(override val name: String, override val required: Boolean = false, override val desc: String = "") : SkillParam(name, "integer", required, desc)
+    data class Bool(override val name: String, override val required: Boolean = false, override val desc: String = "") : SkillParam(name, "boolean", required, desc)
 }
 
 /** A skill the model can invoke. */

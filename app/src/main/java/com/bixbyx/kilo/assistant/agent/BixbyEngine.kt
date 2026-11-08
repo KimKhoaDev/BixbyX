@@ -20,6 +20,7 @@ object BixbyEngine {
     private lateinit var store: ChatStore
     lateinit var prefs: Prefs
     lateinit var voice: VoiceController
+    lateinit var memory: Memory
     private var job: Job? = null
     private var noticeJob: Job? = null
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -41,7 +42,7 @@ object BixbyEngine {
     fun init(ctx: Context) {
         if (::app.isInitialized) return
         app = ctx.applicationContext as Application
-        prefs = Prefs(app); store = ChatStore(app); voice = VoiceController(app, prefs)
+        prefs = Prefs(app); store = ChatStore(app); voice = VoiceController(app, prefs); memory = Memory(app)
         val list = store.load().toMutableList()
         if (list.isEmpty()) {
             val old = prefs.loadHistory()
@@ -121,6 +122,7 @@ object BixbyEngine {
         override fun end(n: Int, ok: Boolean) {
             steps.value = steps.value.map { if (it.n == n) it.copy(state = if (ok) StepState.Done else StepState.Failed) else it }
         }
+        override fun result(card: String) { notify(card) }
     }
 
     // ------------------------------------------------------------ doing things
@@ -132,7 +134,7 @@ object BixbyEngine {
         job = scope.launch {
             state.value = BState.Thinking
             try {
-                val reply = AgentLoop(app, prefs).run(text, messages.value, ui())
+                val reply = AgentLoop(app, prefs, memory).run(text, messages.value, ui())
                 add(Msg(reply, false)); if (prefs.speak) voice.speak(reply, interrupt = true)
             } catch (e: CancellationException) { add(Msg("Stopped.", false)); throw e
             } catch (e: Exception) { add(Msg("âš  ${friendly(e)}", false)) }

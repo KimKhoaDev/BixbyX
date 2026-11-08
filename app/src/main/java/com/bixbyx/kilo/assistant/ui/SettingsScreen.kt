@@ -121,7 +121,6 @@ fun SettingsScreen() {
                 if (models.isNotEmpty()) LazyRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(models.take(40)) { m -> AssistChip({ model = m }, { Text(m, maxLines = 1) }) }
                 }
-                Choice("Request timeout", listOf("60" to "60 s", "120" to "2 min", "240" to "4 min"), timeout.toString()) { timeout = it.toInt() }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton({ saveAi(); scope.launch {
                         models = runCatching { LlmClient.models(prefs) }.getOrDefault(emptyList())
@@ -224,4 +223,5 @@ fun SettingsScreen() {
         } } }
     }
 }
+
 
