@@ -15,7 +15,7 @@ import com.bixbyx.assistant.agent.BState
 import com.bixbyx.assistant.agent.BixbyEngine
 import com.bixbyx.assistant.service.AgentAccessibilityService
 import com.bixbyx.assistant.ui.BixbySheet
-import com.bixbyx.assistant.ui.OneUITheme
+import com.bixbyx.assistant.ui.BixbyTheme
 
 /** The popup that appears over the current app on assistant gesture, widget tap, tile or volume shortcut. */
 class AssistActivity : ComponentActivity() {
@@ -28,7 +28,7 @@ class AssistActivity : ComponentActivity() {
         val describing = listen && BixbyEngine.prefs.autoDescribe && AgentAccessibilityService.running()
         if (describing) BixbyEngine.describeScreen()
         setContent {
-            OneUITheme {
+            BixbyTheme {
                 val state by BixbyEngine.state.collectAsState()
                 LaunchedEffect(Unit) { if (listen && !describing) BixbyEngine.listen() }
                 LaunchedEffect(state) { if (state == BState.Working) finish() }

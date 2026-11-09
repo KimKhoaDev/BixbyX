@@ -3,18 +3,20 @@ package com.bixbyx.assistant.agent
 import android.app.Application
 import android.content.Context
 import com.bixbyx.assistant.ai.LlmClient
+import com.bixbyx.assistant.ai.Look
 import com.bixbyx.assistant.ai.Prefs
 import com.bixbyx.assistant.service.AgentAccessibilityService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.SocketTimeoutException
 
-data class Msg(val text: String, val user: Boolean, val ts: Long = System.currentTimeMillis())
+data class Msg(val text: String, val user: Boolean, val ts: Long = System.currentTimeMillis(), val controls: List<Ctl> = emptyList(), val steps: List<Step> = emptyList())
 enum class BState { Idle, Listening, Thinking, Working }
 enum class StepState { Running, Done, Failed }
-data class Step(val n: Int, val text: String, val state: StepState)
+enum class StepKind { Thought, Ran }
+data class Step(val n: Int, val kind: StepKind, val text: String, val state: StepState, val input: String = "", val output: String = "")
 
-/** Single shared brain used by the app, the assist popup, the floating overlay, the widget and the tile. */
+/** Shared by the app, the assist popup, the floating overlay, the widget and the tile. */
 object BixbyEngine {
     private lateinit var app: Application
     private lateinit var store: ChatStore
@@ -24,24 +26,25 @@ object BixbyEngine {
     private var noticeJob: Job? = null
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // chats manager
     val chats = MutableStateFlow<List<Chat>>(emptyList())
     val currentId = MutableStateFlow("")
     val messages = MutableStateFlow<List<Msg>>(emptyList())
 
-    // live UI state
     val state = MutableStateFlow(BState.Idle)
-    val status = MutableStateFlow("")        // current step / what Bixby is doing
+    val status = MutableStateFlow("")
     val steps = MutableStateFlow<List<Step>>(emptyList())
     val partial = MutableStateFlow("")
-    val notice = MutableStateFlow("")        // short hint / error under the bar (auto clears)
-    val level = MutableStateFlow(0f)         // live mic level 0..1
+    val notice = MutableStateFlow("")
+    val level = MutableStateFlow(0f)
     val panelOpen = MutableStateFlow(false)
+    val look = MutableStateFlow(Look(0, 0, 0, 0, true, 0, 0, true))
 
     fun init(ctx: Context) {
         if (::app.isInitialized) return
         app = ctx.applicationContext as Application
         prefs = Prefs(app); store = ChatStore(app); voice = VoiceController(app, prefs)
+        Tools.init(app)
+        look.value = prefs.look()
         val list = store.load().toMutableList()
         if (list.isEmpty()) {
             val old = prefs.loadHistory()
@@ -52,7 +55,9 @@ object BixbyEngine {
         messages.value = chats.value.first().messages
     }
 
-    // ------------------------------------------------------------ chats manager
+    fun updateLook(f: (Look) -> Look) { val l = f(look.value); look.value = l; prefs.saveLook(l) }
+
+    // ---- chats ----
     private fun newId() = java.util.UUID.randomUUID().toString().take(8)
     private fun persist() = store.save(chats.value)
 
@@ -95,9 +100,7 @@ object BixbyEngine {
         chats.value = listOf(c); persist(); openChat(c.id)
     }
 
-    fun clear() = updateCurrent { it.copy(messages = emptyList(), title = "New chat") }
-
-    // ------------------------------------------------------------ small helpers
+    // ---- helpers ----
     fun notify(text: String) {
         notice.value = text
         noticeJob?.cancel()
@@ -105,25 +108,27 @@ object BixbyEngine {
     }
 
     private fun friendly(e: Exception) = when (e) {
-        is SocketTimeoutException -> "The AI took too long to answer. Try a faster model, or raise the request timeout in Settings."
+        is SocketTimeoutException -> "The model took too long to answer. Try a faster model."
         else -> e.message ?: "Something went wrong"
     }
 
     private fun ui() = object : AgentUi {
         override fun thinking(text: String) { status.value = text; state.value = BState.Thinking }
-        override fun begin(text: String): Int {
+        override fun thought(text: String) {
+            steps.value = steps.value + Step(steps.value.size + 1, StepKind.Thought, text, StepState.Done)
+        }
+        override fun begin(text: String, input: String): Int {
             val n = steps.value.size + 1
-            steps.value = steps.value + Step(n, text, StepState.Running)
-            status.value = "Step $n · $text"; state.value = BState.Working
-            if (prefs.narrate) voice.speak(text, interrupt = true)
+            steps.value = steps.value + Step(n, StepKind.Ran, text, StepState.Running, input)
+            status.value = text; state.value = BState.Working
             return n
         }
-        override fun end(n: Int, ok: Boolean) {
-            steps.value = steps.value.map { if (it.n == n) it.copy(state = if (ok) StepState.Done else StepState.Failed) else it }
+        override fun end(n: Int, ok: Boolean, output: String) {
+            steps.value = steps.value.map { if (it.n == n) it.copy(state = if (ok) StepState.Done else StepState.Failed, output = output) else it }
         }
     }
 
-    // ------------------------------------------------------------ doing things
+    // ---- actions ----
     fun send(text: String) {
         if (text.isBlank()) return
         add(Msg(text, true))
@@ -132,30 +137,37 @@ object BixbyEngine {
         job = scope.launch {
             state.value = BState.Thinking
             try {
-                val reply = AgentLoop(app, prefs).run(text, messages.value, ui())
-                add(Msg(reply, false)); if (prefs.speak) voice.speak(reply, interrupt = true)
-            } catch (e: CancellationException) { add(Msg("Stopped.", false)); throw e
-            } catch (e: Exception) { add(Msg("⚠ ${friendly(e)}", false)) }
+                val r = AgentLoop(app, prefs).run(text, messages.value, ui())
+                add(Msg(r.text, false, controls = r.controls, steps = steps.value)); steps.value = emptyList()
+                if (prefs.speak) voice.speak(r.text, interrupt = true)
+            } catch (e: CancellationException) { add(Msg("Stopped.", false, steps = steps.value)); steps.value = emptyList(); throw e
+            } catch (e: Exception) { add(Msg("Error: ${friendly(e)}", false, steps = steps.value)); steps.value = emptyList() }
             finally { state.value = BState.Idle; status.value = "" }
         }
     }
 
-    /** Reads the screen out loud: "You're in Chrome on a page about …". */
+    /** Ask again with the last thing the user said. */
+    fun regenerate() { messages.value.lastOrNull { it.user }?.let { send(it.text) } }
+
+    fun applyControl(type: String, value: Int) {
+        scope.launch { withContext(Dispatchers.IO) { DeviceActions.setControl(app, type, value) } }
+    }
+
     fun describeScreen() {
         val svc = AgentAccessibilityService.instance
-        if (svc == null) { notify("Turn on Screen control in Settings so I can read the screen"); return }
-        val dump = svc.dump(); val pkg = svc.currentPackage()   // taken now, before any popup changes the window
+        if (svc == null) { notify("Turn on screen control in Settings"); return }
+        val dump = svc.dump(); val pkg = svc.currentPackage()   // read now, before a popup covers the screen
         add(Msg("What's on my screen?", true)); steps.value = emptyList()
         job?.cancel()
         job = scope.launch {
-            state.value = BState.Thinking; status.value = "Reading the screen…"
+            state.value = BState.Thinking; status.value = "Reading the screen"
             try {
                 val t = LlmClient.chat(prefs, listOf(
-                    "system" to "You describe a phone screen to the user, spoken aloud. In 2 or 3 short friendly sentences say which app is open and what the main content and options are. No lists, no technical jargon, same language as the user's recent messages if any, otherwise English.",
+                    "system" to "Describe a phone screen to the user, spoken aloud. In two or three short sentences say which app is open and what the main content and options are. No lists, no jargon. Use the language of the user's recent messages, otherwise English.",
                     "user" to "App package: $pkg\nScreen elements:\n${dump.take(5000)}")) { status.value = it }
                 add(Msg(t, false)); voice.speak(t, interrupt = true)
             } catch (e: CancellationException) { throw e
-            } catch (e: Exception) { add(Msg("⚠ ${friendly(e)}", false)) }
+            } catch (e: Exception) { add(Msg("Error: ${friendly(e)}", false)) }
             finally { state.value = BState.Idle; status.value = "" }
         }
     }
@@ -168,7 +180,6 @@ object BixbyEngine {
             { resetListen(); send(it) }, { resetListen(); notify(it) })
     }
 
-    /** Voice -> text only (Interpreter). */
     fun listenInto(onText: (String) -> Unit) {
         state.value = BState.Listening; partial.value = ""
         voice.listen(scope, { level.value = it }, { partial.value = it },
@@ -180,13 +191,11 @@ object BixbyEngine {
     fun stop() { job?.cancel(); voice.stop(); resetListen(); status.value = "" }
     fun speak(t: String) = voice.speak(t, interrupt = true)
 
-    // ---- One UI 9 Interpreter ----
     suspend fun translate(text: String, target: String): String = LlmClient.chat(prefs, listOf(
-        "system" to "You are a live interpreter. Translate the user's text into $target. Output ONLY the translation.",
+        "system" to "You are an interpreter. Translate the user's text into $target. Output only the translation.",
         "user" to text), 0.1)
 
-    // ---- One UI 9 Diagnostics ----
     suspend fun diagnose(h: Health): String = LlmClient.chat(prefs, listOf(
-        "system" to "You are Bixby Diagnostics. Given device stats, say in 3 short bullet points what is fine, what looks wrong and one practical fix. Be concrete, no fluff.",
+        "system" to "You check phone health. Given device stats, write three short bullet points: what is fine, what looks wrong, one practical fix.",
         "user" to h.asText()), 0.3)
 }

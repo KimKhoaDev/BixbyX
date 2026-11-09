@@ -1,23 +1,25 @@
 package com.bixbyx.assistant.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bixbyx.assistant.agent.BixbyEngine
 import com.bixbyx.assistant.agent.Chat
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,77 +27,56 @@ import java.util.Locale
 private fun relTime(ts: Long): String {
     val d = System.currentTimeMillis() - ts
     return when {
-        d < 60_000 -> "Just now"
-        d < 3_600_000 -> "${d / 60_000} min ago"
-        d < 86_400_000 -> "${d / 3_600_000} h ago"
+        d < 60_000 -> "Now"
+        d < 3_600_000 -> "${d / 60_000} min"
+        d < 86_400_000 -> "${d / 3_600_000} h"
         else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(ts))
     }
 }
 
-/** Chats manager: search, open, rename, swipe-to-delete, new chat. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatsScreen(onOpen: () -> Unit) {
+fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
     val chats by BixbyEngine.chats.collectAsState()
     val cur by BixbyEngine.currentId.collectAsState()
     var query by remember { mutableStateOf("") }
+    var menu by remember { mutableStateOf<Chat?>(null) }
     var renaming by remember { mutableStateOf<Chat?>(null) }
     val shown = chats.filter { query.isBlank() || it.title.contains(query, true) || it.messages.any { m -> m.text.contains(query, true) } }
 
-    OneUiPage("Chats", actions = {
-        IconButton({ BixbyEngine.newChat(); onOpen() }) { Icon(Icons.Default.Add, "New chat") }
-    }) {
+    Page("Chats", padding, actions = { IconButton({ BixbyEngine.newChat(); onOpen() }) { Icon(MiuixIcons.Add, "New chat") } }) {
         item {
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, shape = CircleShape,
-                placeholder = { Text("Search chats") }, leadingIcon = { Icon(Icons.Default.Search, null) })
+            TextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
+                label = "Search chats", useLabelAsPlaceholder = true, singleLine = true)
         }
         if (shown.isEmpty()) item {
-            Text("No chats found", Modifier.fillMaxWidth().padding(24.dp), color = MaterialTheme.colorScheme.onSurface.copy(.5f))
+            Text("No chats", Modifier.fillMaxWidth().padding(24.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
         }
-        items(shown, key = { it.id }) { c ->
-            val dismiss = rememberSwipeToDismissBoxState(confirmValueChange = {
-                if (it == SwipeToDismissBoxValue.EndToStart) { BixbyEngine.deleteChat(c.id); true } else false
-            })
-            SwipeToDismissBox(dismiss, backgroundContent = {
-                Box(Modifier.fillMaxSize().clip(MaterialTheme.shapes.large).background(OneRed).padding(end = 26.dp), Alignment.CenterEnd) {
-                    Icon(Icons.Default.Delete, "Delete", tint = Color.White)
-                }
-            }, modifier = Modifier.animateItem(), enableDismissFromStartToEnd = false) {
-                ChatCard(c, c.id == cur, { BixbyEngine.openChat(c.id); onOpen() }, { renaming = c }, { BixbyEngine.deleteChat(c.id) })
+        itemsIndexed(shown, key = { _, c -> c.id }) { _, c ->
+            Card(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp), showIndication = true,
+                onClick = { BixbyEngine.openChat(c.id); onOpen() }, onLongPress = { menu = c }) {
+                BasicComponent(title = c.title, summary = c.messages.lastOrNull()?.text?.take(90) ?: "Empty chat", endActions = {
+                    Text(if (c.id == cur) "Open" else relTime(c.updated), color = if (c.id == cur) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MiuixTheme.textStyles.footnote1)
+                    IconButton({ menu = c }) { Icon(MiuixIcons.More, "More", tint = MiuixTheme.colorScheme.onSurfaceVariantActions) }
+                })
             }
         }
     }
 
-    renaming?.let { c ->
-        var t by remember(c.id) { mutableStateOf(c.title) }
-        AlertDialog(onDismissRequest = { renaming = null }, title = { Text("Rename chat") },
-            text = { OutlinedTextField(t, { t = it }, singleLine = true) },
-            confirmButton = { TextButton({ BixbyEngine.renameChat(c.id, t); renaming = null }) { Text("Save") } },
-            dismissButton = { TextButton({ renaming = null }) { Text("Cancel") } })
+    OverlayDialog(show = menu != null, title = menu?.title, onDismissRequest = { menu = null }) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton("Rename", { renaming = menu; menu = null }, Modifier.weight(1f))
+            TextButton("Delete", { menu?.let { BixbyEngine.deleteChat(it.id) }; menu = null }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+        }
     }
-}
-
-@Composable
-private fun ChatCard(c: Chat, selected: Boolean, onClick: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface,
-        border = if (selected) BorderStroke(1.5.dp, OneBlue) else null, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(Icons.Default.ChatBubble, if (selected) OneBlue else OnePurple)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(c.title, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(c.messages.lastOrNull()?.text ?: "Empty chat", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface.copy(.55f))
-            }
-            Text(relTime(c.updated), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(.45f))
-            Box {
-                IconButton({ menu = true }) { Icon(Icons.Default.MoreVert, "More") }
-                DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text("Rename") }, { menu = false; onRename() })
-                    DropdownMenuItem({ Text("Delete") }, { menu = false; onDelete() })
-                }
-            }
+    val r = renaming
+    var name by remember(r?.id) { mutableStateOf(r?.title ?: "") }
+    OverlayDialog(show = r != null, title = "Rename chat", onDismissRequest = { renaming = null }) {
+        TextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true)
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton("Cancel", { renaming = null }, Modifier.weight(1f))
+            TextButton("Save", { r?.let { BixbyEngine.renameChat(it.id, name) }; renaming = null }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
         }
     }
 }

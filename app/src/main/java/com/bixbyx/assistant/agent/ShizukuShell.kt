@@ -9,24 +9,19 @@ object ShizukuShell {
     fun granted() = running() && runCatching { Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED }.getOrDefault(false)
     fun request() { runCatching { if (running() && !Shizuku.shouldShowRequestPermissionRationale()) Shizuku.requestPermission(4242) } }
 
-    // Safety net: the model must never run destructive commands.
-    private val blocked = listOf("rm ", "rmdir", "pm uninstall", "pm clear", "pm disable", "wipe", "format", "mkfs", "dd ",
-        "reboot", "recovery", "bootloader", "factory", "su ", "setprop", "settings put secure", "settings put global adb",
-        "chmod", "chown", "mount", "> /", "| sh", "curl", "wget")
-
     fun exec(cmd: String): String {
-        if (!granted()) return "Shizuku not ready (start Shizuku and grant BixbyX permission)"
+        if (!granted()) return "Shizuku is not ready. Start it and grant access in Settings."
         val c = cmd.trim()
-        blocked.firstOrNull { c.contains(it, ignoreCase = true) }?.let { return "Blocked for safety: '$it'" }
+        Safety.blocked(c)?.let { return "Blocked for safety: '$it'" }
         return runCatching {
-            // Shizuku.newProcess is private in API 13+, still the common way to run one-off commands.
+            // Shizuku.newProcess is private since API 13 but is still the usual way to run a one-off command
             val m = Shizuku::class.java.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
             m.isAccessible = true
             val p = m.invoke(null, arrayOf("sh", "-c", c), null, null) as Process
             val out = p.inputStream.bufferedReader().readText()
             val err = p.errorStream.bufferedReader().readText()
             p.waitFor()
-            (out + err).trim().take(1500).ifBlank { "OK" }
+            (out + err).trim().take(3000).ifBlank { "OK" }
         }.getOrElse { "Shizuku error: ${it.message}" }
     }
 }

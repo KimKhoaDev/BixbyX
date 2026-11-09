@@ -50,7 +50,7 @@ object LlmClient {
                 .header("Authorization", "Bearer ${prefs.key()}")
                 .header("HTTP-Referer", "https://github.com/KimKhoaDev/BixbyX").header("X-Title", "BixbyX")
                 .post(body.toString().toRequestBody("application/json".toMediaType())).build()
-            val call = base.newBuilder().readTimeout(prefs.timeoutSec.toLong(), TimeUnit.SECONDS).build().newCall(req)
+            val call = base.newBuilder().readTimeout(120, TimeUnit.SECONDS).build().newCall(req)
             val h = coroutineContext[Job]?.invokeOnCompletion { if (it != null) call.cancel() }
             try {
                 call.execute().use { r ->

@@ -1,0 +1,94 @@
+package com.bixbyx.assistant.ui
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.dp
+import com.bixbyx.assistant.agent.BixbyEngine
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+
+/** A Miuix page: collapsing top bar, overscroll, and room for the floating tab bar. */
+@Composable
+fun Page(
+    title: String,
+    padding: PaddingValues,
+    onBack: (() -> Unit)? = null,
+    subtitle: String = "",
+    actions: @Composable RowScope.() -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    state: LazyListState = rememberLazyListState(),
+    reserveBottom: Boolean = true,
+    content: LazyListScope.() -> Unit,
+) {
+    val sb = MiuixScrollBehavior()
+    val look by BixbyEngine.look.collectAsState()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = title, subtitle = subtitle, scrollBehavior = sb, actions = actions,
+                navigationIcon = { if (onBack != null) IconButton(onClick = onBack) { Icon(MiuixIcons.Back, "Back") } },
+            )
+        },
+        bottomBar = bottomBar,
+    ) { inner ->
+        LazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxHeight()
+                .then(if (look.scrollHaptic) Modifier.scrollEndHaptic() else Modifier)
+                .overScrollVertical()
+                .nestedScroll(sb.nestedScrollConnection),
+            contentPadding = PaddingValues(top = inner.calculateTopPadding(),
+                bottom = inner.calculateBottomPadding() + (if (reserveBottom) padding.calculateBottomPadding() else 0.dp) + 12.dp),
+            content = content,
+        )
+    }
+}
+
+/** Rounded group of rows, as in the Miuix demo. */
+@Composable
+fun Group(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
+    Card(modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp), content = content)
+
+/** Fades and slides a block in, delayed per index, so lists cascade in. */
+@Composable
+fun Stagger(index: Int, content: @Composable () -> Unit) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(index * 60L); shown = true }
+    AnimatedVisibility(shown, enter = fadeIn(tween(300)) + slideInVertically(spring(dampingRatio = .85f, stiffness = 300f)) { it / 4 }) { content() }
+}
+
+@Composable
+fun Pill(text: String, onClick: () -> Unit) {
+    Text(text, Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainer)
+        .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp),
+        style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurface)
+}
+
+@Composable
+fun StatusText(ok: Boolean, on: String = "On", off: String = "Off") =
+    Text(if (ok) on else off, color = if (ok) Green else MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)

@@ -22,6 +22,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Install Android SDK platform 37
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;37.0.0" > /dev/null || true
+
       # Auto version bump: 9.0.<run number>, versionCode = run number (always increases)
       - name: Compute version
         run: |

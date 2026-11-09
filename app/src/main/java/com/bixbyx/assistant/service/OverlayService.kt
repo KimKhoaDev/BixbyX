@@ -104,7 +104,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner, ViewM
         orb = ComposeView(this).apply {
             wire()
             setContent {
-                OneUITheme {
+                BixbyTheme {
                     val s by BixbyEngine.state.collectAsState()
                     androidx.compose.foundation.layout.Box(
                         Modifier
@@ -153,7 +153,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner, ViewM
             bar = ComposeView(this).apply {
                 wire()
                 setContent {
-                    OneUITheme {
+                    BixbyTheme {
                         val v by barVisible.collectAsState()
                         TopStepBar(v) { BixbyEngine.panelOpen.value = true }
                     }
@@ -180,7 +180,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner, ViewM
             panel = ComposeView(this).apply {
                 wire()
                 setContent {
-                    OneUITheme {
+                    BixbyTheme {
                         val v by panelVisible.collectAsState()
                         BixbySheet(v) { BixbyEngine.panelOpen.value = false }
                     }

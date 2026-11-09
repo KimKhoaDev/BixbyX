@@ -48,12 +48,8 @@ class Prefs(ctx: Context) {
         get() = sp.getString("tts_engine", "auto") ?: "auto"; set(v) = sp.edit().putString("tts_engine", v).apply()
     var sttEngine: String
         get() = sp.getString("stt_engine", "auto") ?: "auto"; set(v) = sp.edit().putString("stt_engine", v).apply()
-    var narrate: Boolean
-        get() = sp.getBoolean("narrate", false); set(v) = sp.edit().putBoolean("narrate", v).apply()
     var autoDescribe: Boolean
         get() = sp.getBoolean("auto_describe", true); set(v) = sp.edit().putBoolean("auto_describe", v).apply()
-    var timeoutSec: Int
-        get() = sp.getInt("timeout", 120); set(v) = sp.edit().putInt("timeout", v).apply()
     val useFishTts get() = fishKey.isNotBlank() && ttsEngine != "system"
     val useFishStt get() = fishKey.isNotBlank() && sttEngine != "system"
 
@@ -71,4 +67,18 @@ class Prefs(ctx: Context) {
         list.takeLast(80).forEach { a.put(JSONObject().put("t", it.text).put("u", it.user).put("ts", it.ts)) }
         sp.edit().putString("history", a.toString()).apply()
     }
+
+    // ---- appearance (mirrors the Miuix demo settings) ----
+    fun look() = Look(
+        colorMode = sp.getInt("c_mode", 0), seed = sp.getInt("c_seed", 0), palette = sp.getInt("c_palette", 0),
+        spec = sp.getInt("c_spec", 0), floatingNav = sp.getBoolean("nav_float", true), navPosition = sp.getInt("nav_pos", 0),
+        navMode = sp.getInt("nav_mode", 0), scrollHaptic = sp.getBoolean("haptic", true))
+
+    fun saveLook(l: Look) = sp.edit().putInt("c_mode", l.colorMode).putInt("c_seed", l.seed).putInt("c_palette", l.palette)
+        .putInt("c_spec", l.spec).putBoolean("nav_float", l.floatingNav).putInt("nav_pos", l.navPosition)
+        .putInt("nav_mode", l.navMode).putBoolean("haptic", l.scrollHaptic).apply()
 }
+
+/** colorMode: System, Light, Dark, MonetSystem, MonetLight, MonetDark. seed 0 = default key colour. */
+data class Look(val colorMode: Int, val seed: Int, val palette: Int, val spec: Int,
+                val floatingNav: Boolean, val navPosition: Int, val navMode: Int, val scrollHaptic: Boolean)
