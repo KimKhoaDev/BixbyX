@@ -27,8 +27,17 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop as rememberGlassBackdr
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop as blurLayer
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop as rememberBlurBackdrop
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -67,9 +76,10 @@ fun Page(
     CompositionLocalProvider(LocalGlass provides glass) {
         Scaffold(
             topBar = {
-                if (blur != null) GlassTopAppBar(title = title, subtitle = subtitle, backdrop = blur, progressiveBlur = look.progressive,
-                    scrollBehavior = sb, bandBrush = GlassTopAppBarDefaults.bandBrush(c.surface), navigationIcon = nav, actions = actions)
-                else TopAppBar(title = title, subtitle = subtitle, scrollBehavior = sb, actions = actions, navigationIcon = nav)
+                BlurredBar(blur, look.progressive, sb) {
+                    TopAppBar(title = title, subtitle = subtitle, color = if (blur != null) Color.Transparent else c.surface,
+                        scrollBehavior = sb, actions = actions, navigationIcon = nav)
+                }
             },
             bottomBar = bottomBar,
         ) { inner ->
@@ -112,3 +122,20 @@ fun Pill(text: String, onClick: () -> Unit) {
 @Composable
 fun StatusText(ok: Boolean, on: String = "On", off: String = "Off") =
     Text(if (ok) on else off, color = if (ok) Green else MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)
+
+@Composable
+private fun barColors(progressive: Boolean): BlurColors = BlurDefaults.blurColors(
+    blendColors = listOf(BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(alpha = if (progressive) 0.3f else 0.8f))))
+
+/** Blurs whatever scrolls under the top bar. Progressive: strongest at the top edge, fading out below it. */
+@Composable
+private fun BlurredBar(backdrop: LayerBackdrop?, progressive: Boolean, scrollBehavior: ScrollBehavior?, content: @Composable () -> Unit) {
+    Box(if (backdrop != null && !progressive) Modifier.textureBlur(backdrop, RectangleShape, 25f, colors = barColors(false)) else Modifier) {
+        if (backdrop != null && progressive) {
+            Box(Modifier.matchParentSize()
+                .graphicsLayer { alpha = scrollBehavior?.state?.let { (-it.contentOffset / 48.dp.toPx()).coerceIn(0f, 1f) } ?: 1f }
+                .progressiveTextureBlur(backdrop, RectangleShape, ProgressiveBlur.Top.copy(curve = 2.2f), 10f, colors = barColors(true)))
+        }
+        content()
+    }
+}

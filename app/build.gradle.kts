@@ -49,7 +49,6 @@ dependencies {
     implementation("top.yukonga.miuix.kmp:miuix-preference-android:$miuix")
     implementation("top.yukonga.miuix.kmp:miuix-icons-android:$miuix")
     implementation("top.yukonga.miuix.kmp:miuix-blur-android:$miuix")
-    implementation("top.yukonga.miuix.kmp:miuix-glass-android:$miuix")
     implementation("io.github.kyant0:backdrop:2.0.1")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.core:core-ktx:1.17.0")
