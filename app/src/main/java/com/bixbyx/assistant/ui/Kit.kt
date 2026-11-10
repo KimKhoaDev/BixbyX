@@ -134,7 +134,7 @@ private fun BlurredBar(backdrop: LayerBackdrop?, progressive: Boolean, scrollBeh
         if (backdrop != null && progressive) {
             Box(Modifier.matchParentSize()
                 .graphicsLayer { alpha = scrollBehavior?.state?.let { (-it.contentOffset / 48.dp.toPx()).coerceIn(0f, 1f) } ?: 1f }
-                .progressiveTextureBlur(backdrop, RectangleShape, ProgressiveBlur.Top.copy(curve = 2.2f), 10f, colors = barColors(true)))
+                .progressiveTextureBlur(backdrop, RectangleShape, 10f, ProgressiveBlur.Top.copy(curve = 2.2f), colors = barColors(true)))
         }
         content()
     }
