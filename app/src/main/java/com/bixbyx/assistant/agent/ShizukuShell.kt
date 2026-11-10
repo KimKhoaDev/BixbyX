@@ -11,8 +11,14 @@ object ShizukuShell {
 
     fun exec(cmd: String): String {
         if (!granted()) return "Shizuku is not ready. Start it and grant access in Settings."
+        Safety.blocked(cmd.trim())?.let { return "Blocked for safety: '$it'" }
+        return execTrusted(cmd)
+    }
+
+    /** For the app's own fixed commands only (permission grants). Never pass model output here. */
+    fun execTrusted(cmd: String): String {
+        if (!granted()) return "Shizuku is not ready."
         val c = cmd.trim()
-        Safety.blocked(c)?.let { return "Blocked for safety: '$it'" }
         return runCatching {
             // Shizuku.newProcess is private since API 13 but is still the usual way to run a one-off command
             val m = Shizuku::class.java.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)

@@ -33,7 +33,6 @@ import com.bixbyx.assistant.agent.Tools
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Copy
@@ -41,25 +40,45 @@ import top.yukonga.miuix.kmp.icon.extended.Mic
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Share
-import top.yukonga.miuix.kmp.preference.SwitchPreference
+import com.bixbyx.assistant.glass.LiquidSlider
+import com.bixbyx.assistant.glass.LiquidToggle
+import com.kyant.backdrop.backdrops.layerBackdrop as glassLayer
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop as rememberGlassBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import androidx.compose.foundation.shape.CircleShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 fun runQuick(s: String) { if (s.startsWith("What's on")) BixbyEngine.describeScreen() else BixbyEngine.send(s) }
 
 @Composable
 private fun ControlCard(ctl: Ctl) {
+    val c = MiuixTheme.colorScheme
     var v by remember(ctl) { mutableIntStateOf(ctl.value) }
+    val surface = c.surfaceContainer
+    val bd = rememberGlassBackdrop { drawRect(surface); drawContent() }
+    // apply a moment after the last change, so dragging a slider does not spam the system
+    LaunchedEffect(v) { if (v != ctl.value) { kotlinx.coroutines.delay(250); BixbyEngine.applyControl(ctl.type, v) } }
     Card(Modifier.padding(horizontal = 12.dp).padding(top = 8.dp)) {
-        if (ctl.isSlider) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Row(Modifier.fillMaxWidth()) {
-                    Text(ctl.title, Modifier.weight(1f), style = MiuixTheme.textStyles.body1)
-                    Text("$v%", color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)
+        Box {
+            Box(Modifier.matchParentSize().glassLayer(bd))
+            if (ctl.isSlider) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(ctl.title, Modifier.weight(1f), style = MiuixTheme.textStyles.body1)
+                        Text("$v%", color = c.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    LiquidSlider({ v.toFloat() }, { v = it.toInt() }, 0f..100f, 1f, bd)
                 }
-                Slider(value = v / 100f, onValueChange = { v = (it * 100).toInt() }, onValueChangeFinished = { BixbyEngine.applyControl(ctl.type, v) })
+            } else {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(ctl.title, Modifier.weight(1f), style = MiuixTheme.textStyles.body1)
+                    LiquidToggle({ v == 1 }, { v = if (it) 1 else 0 }, bd)
+                }
             }
-        } else {
-            SwitchPreference(checked = v == 1, onCheckedChange = { v = if (it) 1 else 0; BixbyEngine.applyControl(ctl.type, v) }, title = ctl.title)
         }
     }
 }
@@ -136,7 +155,13 @@ fun GlowBar(state: BState, status: String, partial: String, onSend: (String) -> 
     val active = state != BState.Idle
     var text by remember { mutableStateOf("") }
     val body = MiuixTheme.textStyles.body1.copy(color = c.onSurface)
-    Row(modifier.fillMaxWidth().height(52.dp).glowBar(active, c.surfaceContainer).padding(start = 12.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    val glass = LocalGlass.current
+    val shell: Modifier = if (glass != null) Modifier.glowAura(active)
+        .drawBackdrop(glass, { CircleShape }, effects = { vibrancy(); blur(6.dp.toPx()); lens(14.dp.toPx(), 14.dp.toPx()) },
+            onDrawSurface = { drawRect(c.surfaceContainer.copy(alpha = .55f)) })
+        .glowRim(active)
+    else Modifier.glowBar(active, c.surfaceContainer)
+    Row(modifier.fillMaxWidth().height(52.dp).then(shell).padding(start = 12.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         BixbyOrb(state, 30.dp, hole = c.surfaceContainer)
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f)) {
@@ -180,7 +205,7 @@ fun BixbySheet(visible: Boolean, onDismiss: () -> Unit) {
     val state by BixbyEngine.state.collectAsState()
     val steps by BixbyEngine.steps.collectAsState()
     val list = rememberLazyListState()
-    LaunchedEffect(msgs.size) { if (msgs.isNotEmpty()) list.animateScrollToItem(msgs.lastIndex) }
+    LaunchedEffect(msgs.size, steps.size) { val n = list.layoutInfo.totalItemsCount; if (n > 0) list.animateScrollToItem(n - 1) }
     val ts = remember { MutableTransitionState(false) }
     ts.targetState = visible
     val scrim by animateFloatAsState(if (visible) 1f else 0f, tween(300), label = "scrim")
@@ -190,9 +215,11 @@ fun BixbySheet(visible: Boolean, onDismiss: () -> Unit) {
             enter = slideInVertically(spring(dampingRatio = .78f, stiffness = 320f)) { it / 2 } + fadeIn(tween(220)),
             exit = slideOutVertically(tween(260)) { it / 2 } + fadeOut(tween(200))) {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().clickable(enabled = false) {}) {
-                ToolSteps(steps, running = state != BState.Idle, defaultOpen = true)
                 if (msgs.isEmpty() && steps.isEmpty()) QuickChips()
-                else LazyColumn(Modifier.heightIn(max = 300.dp), state = list) { messageItems(msgs.takeLast(4)) }
+                else LazyColumn(Modifier.heightIn(max = 340.dp), state = list) {
+                    messageItems(msgs.takeLast(4))
+                    if (steps.isNotEmpty()) item { ToolSteps(steps, running = state != BState.Idle, defaultOpen = true) }
+                }
                 InputBar()
             }
         }

@@ -16,10 +16,13 @@ class Act(val j: JSONObject) {
     val thought = j.optString("thought")
     val say = j.optString("say")
     val id = j.optInt("id", -1)
-    val text = j.optString("text")
-    val path = j.optString("path")
-    val old = j.optString("old")
-    val new = j.optString("new")
+    private fun pick(vararg keys: String): String = keys.firstNotNullOfOrNull { k -> j.optString(k).takeIf { it.isNotBlank() } } ?: ""
+    // models often name arguments differently, so accept the usual alternatives
+    val text = pick("text", "command", "cmd", "query", "q", "url", "content", "message", "app", "package")
+    val name = pick("name", "skill", "text")
+    val path = pick("path", "file", "filename", "filepath", "dir")
+    val old = pick("old", "old_str", "old_text", "find")
+    val new = if (j.has("new")) j.optString("new") else if (j.has("new_str")) j.optString("new_str") else j.optString("new_text")
     val append = j.optBoolean("append", false)
     val x = j.optInt("x", -1)
     val y = j.optInt("y", -1)
@@ -80,7 +83,7 @@ object DeviceActions {
             "open_settings" -> Tools.openSettings(ctx, a.text)
             "device_info" -> Diagnostics.read(ctx).asText()
             "memory_add" -> Tools.memoryAdd(a.text)
-            "use_skill" -> Skills.read(a.text) ?: "No skill named '${a.text}'. Available:\n${Skills.summary()}"
+            "use_skill" -> Skills.read(a.name)?.let { "Skill instructions. Follow them now with the other tools:\n$it" } ?: "No skill named '${a.name}'. Available:\n${Skills.summary()}"
             "speak" -> { BixbyEngine.speak(a.text); "OK" }
             else -> "Unknown action '${a.action}'"
         }

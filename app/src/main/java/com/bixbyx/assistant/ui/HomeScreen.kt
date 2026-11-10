@@ -38,7 +38,7 @@ fun HomeScreen(padding: PaddingValues) {
             }
         }
         if (msgs.isEmpty() && steps.isEmpty()) item { QuickChips() }
-        if (steps.isNotEmpty()) item { ToolSteps(steps, running = state != com.bixbyx.assistant.agent.BState.Idle, defaultOpen = true) }
         messageItems(msgs.takeLast(60))
+        if (steps.isNotEmpty()) item { ToolSteps(steps, running = state != com.bixbyx.assistant.agent.BState.Idle, defaultOpen = true) }
     }
 }

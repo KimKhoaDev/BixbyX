@@ -22,5 +22,12 @@ object Skills {
     fun description(name: String): String = read(name)?.lineSequence()?.firstOrNull { it.isNotBlank() }?.take(100).orEmpty()
     fun save(name: String, body: String) { val n = clean(name); if (n.isNotEmpty()) File(dir, "$n.md").writeText(body.trim() + "\n") }
     fun delete(name: String) { File(dir, clean(name) + ".md").delete() }
+    /** Skills named in the task are loaded up front, so the model does not have to guess how to ask for them. */
+    fun matching(task: String): List<Pair<String, String>> {
+        val t = task.lowercase()
+        val all = t.contains("skill")
+        return names().filter { all || t.contains(it) }.mapNotNull { n -> read(n)?.let { n to it } }
+    }
+
     fun summary(): String = names().joinToString("\n") { "- $it: ${description(it)}" }
 }

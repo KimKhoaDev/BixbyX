@@ -30,7 +30,10 @@ import com.bixbyx.assistant.ai.Provider
 import com.bixbyx.assistant.service.AgentAccessibilityService
 import com.bixbyx.assistant.service.BixbyTile
 import com.bixbyx.assistant.service.OverlayService
+import com.bixbyx.assistant.agent.Permissions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -40,6 +43,7 @@ import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
 private val ColorModes = listOf("System", "Light", "Dark", "Monet system", "Monet light", "Monet dark")
+private val NavStyles = listOf("Liquid glass", "Floating", "Classic")
 private val NavModes = listOf("Icon and text", "Icon only", "Icon with selected label")
 private val NavPositions = listOf("Center", "Start", "End")
 private val Palettes = ThemePaletteStyle.entries.map { it.name }
@@ -115,6 +119,7 @@ fun SettingsScreen(padding: PaddingValues) {
     fun saveVoice() { prefs.fishKey = fishKey; prefs.fishVoice = fishVoice; prefs.ttsEngine = EngineKeys[tts]; prefs.sttEngine = EngineKeys[stt] }
     val onPrimary = MiuixTheme.colorScheme.onPrimary
     val monet = look.colorMode in 3..5
+    val blurOk = top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported()
 
     Page("Settings", padding, subtitle = "v$version") {
         // ---- AI provider
@@ -170,12 +175,18 @@ fun SettingsScreen(padding: PaddingValues) {
                         OverlayDropdownPreference(Specs, look.spec, "Color spec", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(spec = it) } })
                     }
                 }
-                SwitchPreference(look.floatingNav, { BixbyEngine.updateLook { l -> l.copy(floatingNav = it) } }, "Floating navigation bar")
-                AnimatedVisibility(look.floatingNav) {
-                    OverlayDropdownPreference(NavPositions, look.navPosition, "Navigation bar position", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(navPosition = it) } })
+                OverlayDropdownPreference(NavStyles, look.navStyle, "Navigation bar style", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navStyle = i) } })
+                AnimatedVisibility(look.navStyle == 1) {
+                    OverlayDropdownPreference(NavPositions, look.navPosition, "Navigation bar position", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navPosition = i) } })
                 }
-                AnimatedVisibility(!look.floatingNav) {
-                    OverlayDropdownPreference(NavModes, look.navMode, "Navigation bar mode", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(navMode = it) } })
+                AnimatedVisibility(look.navStyle == 2) {
+                    OverlayDropdownPreference(NavModes, look.navMode, "Navigation bar mode", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navMode = i) } })
+                }
+                AnimatedVisibility(blurOk) {
+                    SwitchPreference(look.blur, { BixbyEngine.updateLook { l -> l.copy(blur = it) } }, "Blur effects", summary = "Top bar and tab bar")
+                }
+                AnimatedVisibility(blurOk && look.blur) {
+                    SwitchPreference(look.progressive, { BixbyEngine.updateLook { l -> l.copy(progressive = it) } }, "Progressive blur", summary = "Top bar")
                 }
                 SwitchPreference(look.scrollHaptic, { BixbyEngine.updateLook { l -> l.copy(scrollHaptic = it) } }, "Scroll end haptic")
             }
@@ -205,6 +216,15 @@ fun SettingsScreen(padding: PaddingValues) {
                 val files = filesAccess()
                 val shizuku = ShizukuShell.granted()
                 val write = Settings.System.canWrite(ctx)
+                val missing = Permissions.missing(ctx)
+                ArrowPreference("Grant with Shizuku", summary = if (missing.isEmpty()) "Everything is granted" else "Missing: " + missing.joinToString(),
+                    onClick = {
+                        if (!ShizukuShell.granted()) { if (ShizukuShell.running()) ShizukuShell.request() else go(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))) }
+                        else scope.launch {
+                            val d = withContext(Dispatchers.IO) { Permissions.grant(ctx) }
+                            BixbyEngine.notify(if (d.isEmpty()) "Nothing changed" else "Granted: " + d.joinToString()); tick++
+                        }
+                    }, endActions = { StatusText(missing.isEmpty(), "Done", if (ShizukuShell.granted()) "Grant" else "Needs Shizuku") })
                 ArrowPreference("Screen control", summary = "Accessibility service", onClick = { go(ctx, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, endActions = { StatusText(a11y) })
                 ArrowPreference("Display over other apps", onClick = { go(ctx, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(overlay) })
                 ArrowPreference("Microphone", onClick = { go(ctx, appDetails(ctx)) }, endActions = { StatusText(mic) })

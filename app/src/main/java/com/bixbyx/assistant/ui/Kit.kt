@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -19,6 +21,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.bixbyx.assistant.agent.BixbyEngine
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop as glassLayer
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop as rememberGlassBackdrop
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop as blurLayer
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop as rememberBlurBackdrop
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -32,7 +42,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
-/** A Miuix page: collapsing top bar, overscroll, and room for the floating tab bar. */
+/** Backdrop for the glass surfaces (tab bar, input bar, toggles). Null in overlay windows, which cannot refract other apps. */
+val LocalGlass = staticCompositionLocalOf<Backdrop?> { null }
+
+/** A Miuix page: collapsing top bar with progressive blur, overscroll, and room for the tab bar. */
 @Composable
 fun Page(
     title: String,
@@ -47,25 +60,32 @@ fun Page(
 ) {
     val sb = MiuixScrollBehavior()
     val look by BixbyEngine.look.collectAsState()
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = title, subtitle = subtitle, scrollBehavior = sb, actions = actions,
-                navigationIcon = { if (onBack != null) IconButton(onClick = onBack) { Icon(MiuixIcons.Back, "Back") } },
-            )
-        },
-        bottomBar = bottomBar,
-    ) { inner ->
-        LazyColumn(
-            state = state,
-            modifier = Modifier.fillMaxHeight()
-                .then(if (look.scrollHaptic) Modifier.scrollEndHaptic() else Modifier)
-                .overScrollVertical()
-                .nestedScroll(sb.nestedScrollConnection),
-            contentPadding = PaddingValues(top = inner.calculateTopPadding(),
-                bottom = inner.calculateBottomPadding() + (if (reserveBottom) padding.calculateBottomPadding() else 0.dp) + 12.dp),
-            content = content,
-        )
+    val c = MiuixTheme.colorScheme
+    val blur = if (look.blur && isRuntimeShaderSupported()) rememberBlurBackdrop { drawRect(c.surface); drawContent() } else null
+    val glass = rememberGlassBackdrop { drawRect(c.background); drawContent() }
+    val nav: @Composable () -> Unit = { if (onBack != null) IconButton(onClick = onBack) { Icon(MiuixIcons.Back, "Back") } }
+    CompositionLocalProvider(LocalGlass provides glass) {
+        Scaffold(
+            topBar = {
+                if (blur != null) GlassTopAppBar(title = title, subtitle = subtitle, backdrop = blur, progressiveBlur = look.progressive,
+                    scrollBehavior = sb, bandBrush = GlassTopAppBarDefaults.bandBrush(c.surface), navigationIcon = nav, actions = actions)
+                else TopAppBar(title = title, subtitle = subtitle, scrollBehavior = sb, actions = actions, navigationIcon = nav)
+            },
+            bottomBar = bottomBar,
+        ) { inner ->
+            Box(Modifier.fillMaxSize().then(if (blur != null) Modifier.blurLayer(blur) else Modifier).glassLayer(glass)) {
+                LazyColumn(
+                    state = state,
+                    modifier = Modifier.fillMaxHeight()
+                        .then(if (look.scrollHaptic) Modifier.scrollEndHaptic() else Modifier)
+                        .overScrollVertical()
+                        .nestedScroll(sb.nestedScrollConnection),
+                    contentPadding = PaddingValues(top = inner.calculateTopPadding(),
+                        bottom = inner.calculateBottomPadding() + (if (reserveBottom) padding.calculateBottomPadding() else 0.dp) + 12.dp),
+                    content = content,
+                )
+            }
+        }
     }
 }
 
