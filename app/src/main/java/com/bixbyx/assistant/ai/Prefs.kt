@@ -73,15 +73,15 @@ class Prefs(ctx: Context) {
         colorMode = sp.getInt("c_mode", 0), seed = sp.getInt("c_seed", 0), palette = sp.getInt("c_palette", 0),
         spec = sp.getInt("c_spec", 0), floatingNav = sp.getBoolean("nav_float", true), navPosition = sp.getInt("nav_pos", 0),
         navMode = sp.getInt("nav_mode", 0), scrollHaptic = sp.getBoolean("haptic", true),
-        navStyle = sp.getInt("nav_style", 0), blur = sp.getBoolean("blur", true), progressive = sp.getBoolean("progressive", true))
+        navStyle = sp.getInt("nav_style", 0), design = sp.getInt("design", 0), blur = sp.getBoolean("blur", true), progressive = sp.getBoolean("progressive", true))
 
     fun saveLook(l: Look) = sp.edit().putInt("c_mode", l.colorMode).putInt("c_seed", l.seed).putInt("c_palette", l.palette)
         .putInt("c_spec", l.spec).putBoolean("nav_float", l.floatingNav).putInt("nav_pos", l.navPosition)
         .putInt("nav_mode", l.navMode).putBoolean("haptic", l.scrollHaptic)
-        .putInt("nav_style", l.navStyle).putBoolean("blur", l.blur).putBoolean("progressive", l.progressive).apply()
+        .putInt("nav_style", l.navStyle).putInt("design", l.design).putBoolean("blur", l.blur).putBoolean("progressive", l.progressive).apply()
 }
 
 /** colorMode: System, Light, Dark, MonetSystem, MonetLight, MonetDark. seed 0 = default key colour. */
 data class Look(val colorMode: Int, val seed: Int, val palette: Int, val spec: Int,
                 val floatingNav: Boolean, val navPosition: Int, val navMode: Int, val scrollHaptic: Boolean,
-                val navStyle: Int = 0, val blur: Boolean = true, val progressive: Boolean = true)
+                val navStyle: Int = 0, val blur: Boolean = true, val progressive: Boolean = true, val design: Int = 0)

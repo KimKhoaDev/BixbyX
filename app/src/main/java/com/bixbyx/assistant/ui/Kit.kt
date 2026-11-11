@@ -72,8 +72,9 @@ fun Page(
     val c = MiuixTheme.colorScheme
     val blur = if (look.blur && isRuntimeShaderSupported()) rememberBlurBackdrop { drawRect(c.surface); drawContent() } else null
     val glass = rememberGlassBackdrop { drawRect(c.background); drawContent() }
+    val wall = if (look.design == 1) rememberGlassBackdrop() else null
     val nav: @Composable () -> Unit = { if (onBack != null) IconButton(onClick = onBack) { Icon(MiuixIcons.Back, "Back") } }
-    CompositionLocalProvider(LocalGlass provides glass) {
+    CompositionLocalProvider(LocalGlass provides glass, LocalWall provides wall) {
         Scaffold(
             topBar = {
                 BlurredBar(blur, look.progressive, sb) {
@@ -84,6 +85,7 @@ fun Page(
             bottomBar = bottomBar,
         ) { inner ->
             Box(Modifier.fillMaxSize().then(if (blur != null) Modifier.blurLayer(blur) else Modifier).glassLayer(glass)) {
+                if (wall != null) Box(Modifier.fillMaxSize().glassLayer(wall)) { GlassWallpaper() }
                 LazyColumn(
                     state = state,
                     modifier = Modifier.fillMaxHeight()
@@ -102,7 +104,7 @@ fun Page(
 /** Rounded group of rows, as in the Miuix demo. */
 @Composable
 fun Group(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
-    Card(modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp), content = content)
+    Panel(modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp), content = content)
 
 /** Fades and slides a block in, delayed per index, so lists cascade in. */
 @Composable

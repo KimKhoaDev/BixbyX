@@ -43,7 +43,8 @@ import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
 private val ColorModes = listOf("System", "Light", "Dark", "Monet system", "Monet light", "Monet dark")
-private val NavStyles = listOf("Liquid glass", "Floating", "Classic")
+private val NavStyles = listOf("Liquid glass", "Split", "Floating", "Classic")
+private val Designs = listOf("Miuix", "Liquid glass")
 private val NavModes = listOf("Icon and text", "Icon only", "Icon with selected label")
 private val NavPositions = listOf("Center", "Start", "End")
 private val Palettes = ThemePaletteStyle.entries.map { it.name }
@@ -165,6 +166,7 @@ fun SettingsScreen(padding: PaddingValues) {
         item { Stagger(2) { Column {
             SmallTitle("Appearance")
             Group {
+                OverlayDropdownPreference(Designs, look.design, "Design", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(design = i) } })
                 OverlayDropdownPreference(ColorModes, look.colorMode, "Color mode", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(colorMode = it) } })
                 AnimatedVisibility(monet) {
                     OverlayDropdownPreference(KeyNames, look.seed, "Key color", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(seed = it) } })
@@ -176,10 +178,10 @@ fun SettingsScreen(padding: PaddingValues) {
                     }
                 }
                 OverlayDropdownPreference(NavStyles, look.navStyle, "Navigation bar style", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navStyle = i) } })
-                AnimatedVisibility(look.navStyle == 1) {
+                AnimatedVisibility(look.navStyle == 2) {
                     OverlayDropdownPreference(NavPositions, look.navPosition, "Navigation bar position", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navPosition = i) } })
                 }
-                AnimatedVisibility(look.navStyle == 2) {
+                AnimatedVisibility(look.navStyle == 3) {
                     OverlayDropdownPreference(NavModes, look.navMode, "Navigation bar mode", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navMode = i) } })
                 }
                 AnimatedVisibility(blurOk) {

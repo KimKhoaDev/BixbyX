@@ -12,7 +12,23 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import top.yukonga.miuix.kmp.icon.extended.Add
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -112,7 +128,9 @@ private fun Root() {
                         }
                     }
                 }
-                1 -> FloatingNavigationBar(
+                1 -> SplitBar(tabs, tab, { tab = it }, glass, { BixbyEngine.newChat(); tab = 0 }, { tab = 0; BixbyEngine.listen() },
+                    Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp))
+                2 -> FloatingNavigationBar(
                     modifier = if (blur != null) Modifier.textureBlur(blur, floatShape, 25f,
                         colors = BlurDefaults.blurColors(blendColors = listOf(BlendColorEntry(color = c.surfaceContainer.copy(alpha = .6f)))), highlight = highlight) else Modifier,
                     color = if (blur != null) androidx.compose.ui.graphics.Color.Transparent else c.surfaceContainer,
@@ -140,4 +158,32 @@ private fun Root() {
             }
         }
     }
+}
+
+/** Two glass capsules, as in iOS: tabs on the left, round action buttons on the right. */
+@Composable
+private fun SplitBar(tabs: List<TabItem>, tab: Int, onTab: (Int) -> Unit, glass: Backdrop, onNew: () -> Unit, onTalk: () -> Unit, modifier: Modifier = Modifier) {
+    val c = MiuixTheme.colorScheme
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        LiquidBottomTabs(selectedTabIndex = { tab }, onTabSelected = onTab, backdrop = glass, tabsCount = tabs.size, modifier = Modifier.weight(1f)) {
+            tabs.forEachIndexed { i, t -> LiquidBottomTab({ onTab(i) }) { Icon(t.icon, t.label, Modifier.size(22.dp), tint = c.onSurface) } }
+        }
+        Row(Modifier.height(64.dp)
+            .drawBackdrop(glass, { CircleShape }, effects = { vibrancy(); blur(8.dp.toPx()); lens(16.dp.toPx(), 32.dp.toPx()) },
+                onDrawSurface = { drawRect(c.surfaceContainer.copy(alpha = .55f)) })
+            .padding(6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassRound(onNew) { Icon(MiuixIcons.Add, "New chat", Modifier.size(24.dp), tint = c.onSurface) }
+            GlassRound(onTalk) { Image(painterResource(R.drawable.ic_bixby_logo), "Talk to Bixby", Modifier.size(30.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun GlassRound(onClick: () -> Unit, content: @Composable () -> Unit) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (pressed) .88f else 1f, spring(dampingRatio = .55f, stiffness = 500f), label = "press")
+    Box(Modifier.size(52.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
+        .background(if (pressed) MiuixTheme.colorScheme.onSurface.copy(alpha = .10f) else androidx.compose.ui.graphics.Color.Transparent)
+        .pointerInput(Unit) { detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { onClick() }) },
+        contentAlignment = Alignment.Center) { content() }
 }

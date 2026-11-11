@@ -52,7 +52,7 @@ fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
             Text("No chats", Modifier.fillMaxWidth().padding(24.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
         }
         itemsIndexed(shown, key = { _, c -> c.id }) { _, c ->
-            Card(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp), showIndication = true,
+            Panel(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 onClick = { BixbyEngine.openChat(c.id); onOpen() }, onLongPress = { menu = c }) {
                 BasicComponent(title = c.title, summary = c.messages.lastOrNull()?.text?.take(90) ?: "Empty chat", endActions = {
                     Text(if (c.id == cur) "Open" else relTime(c.updated), color = if (c.id == cur) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,

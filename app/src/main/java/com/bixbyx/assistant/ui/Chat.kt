@@ -95,7 +95,7 @@ private fun MessageView(m: Msg, last: Boolean) {
     } else {
         Column {
             ToolSteps(m.steps, running = false, defaultOpen = false)
-            Card(Modifier.padding(horizontal = 12.dp)) { Text(m.text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MiuixTheme.textStyles.body1) }
+            Panel(Modifier.padding(horizontal = 12.dp)) { Text(m.text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MiuixTheme.textStyles.body1) }
             m.controls.forEach { ControlCard(it) }
             Row(Modifier.padding(start = 12.dp, top = 2.dp)) {
                 IconButton({ Tools.clipboardSet(ctx, m.text); BixbyEngine.notify("Copied") }) { Icon(MiuixIcons.Copy, "Copy", tint = c.onSurfaceVariantActions) }
