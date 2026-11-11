@@ -135,12 +135,12 @@ fun SettingsScreen(padding: PaddingValues) {
                 if (models.isNotEmpty()) OverlayDropdownPreference(models.take(80), models.indexOf(model).coerceAtLeast(0), "Available models",
                     onSelectedIndexChange = { model = models[it] })
                 Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ saveAi(); scope.launch {
+                    ThemedButton("Fetch models", { saveAi(); scope.launch {
                         models = runCatching { LlmClient.models(prefs) }.getOrDefault(emptyList())
-                        testMsg = if (models.isEmpty()) "Could not list models. Check the key and URL." else "${models.size} models" } }, Modifier.weight(1f)) { Text("Fetch models") }
-                    Button({ saveAi(); testMsg = "Testing"; scope.launch { testMsg = runCatching {
+                        testMsg = if (models.isEmpty()) "Could not list models. Check the key and URL." else "${models.size} models" } }, Modifier.weight(1f))
+                    ThemedButton("Save and test", { saveAi(); testMsg = "Testing"; scope.launch { testMsg = runCatching {
                         "Works: " + LlmClient.chat(prefs, listOf("user" to "Reply with the word OK")).take(40) }.getOrElse { "Failed: ${it.message}" } } },
-                        Modifier.weight(1f), colors = ButtonDefaults.buttonColorsPrimary()) { Text("Save and test", color = onPrimary) }
+                        Modifier.weight(1f), primary = true)
                 }
                 if (testMsg.isNotEmpty()) Text(testMsg, Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1)
             }
@@ -154,10 +154,10 @@ fun SettingsScreen(padding: PaddingValues) {
                 Field(fishVoice, { fishVoice = it }, "Voice model ID (optional)")
                 OverlayDropdownPreference(Engines, tts, "Speech output", onSelectedIndexChange = { tts = it; saveVoice() })
                 OverlayDropdownPreference(Engines, stt, "Speech input", onSelectedIndexChange = { stt = it; saveVoice() })
-                SwitchPreference(speak, { speak = it; prefs.speak = it }, "Speak replies")
+                ThemedSwitch(speak, { speak = it; prefs.speak = it }, "Speak replies")
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ saveVoice(); BixbyEngine.notify("Saved") }, Modifier.weight(1f)) { Text("Save") }
-                    Button({ saveVoice(); BixbyEngine.testVoice() }, Modifier.weight(1f), colors = ButtonDefaults.buttonColorsPrimary()) { Text("Test voice", color = onPrimary) }
+                    ThemedButton("Save", { saveVoice(); BixbyEngine.notify("Saved") }, Modifier.weight(1f))
+                    ThemedButton("Test voice", { saveVoice(); BixbyEngine.testVoice() }, Modifier.weight(1f), primary = true)
                 }
             }
         } } }
@@ -185,12 +185,12 @@ fun SettingsScreen(padding: PaddingValues) {
                     OverlayDropdownPreference(NavModes, look.navMode, "Navigation bar mode", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navMode = i) } })
                 }
                 AnimatedVisibility(blurOk) {
-                    SwitchPreference(look.blur, { BixbyEngine.updateLook { l -> l.copy(blur = it) } }, "Blur effects", summary = "Top bar and tab bar")
+                    ThemedSwitch(look.blur, { BixbyEngine.updateLook { l -> l.copy(blur = it) } }, "Blur effects", summary = "Top bar and tab bar")
                 }
                 AnimatedVisibility(blurOk && look.blur) {
-                    SwitchPreference(look.progressive, { BixbyEngine.updateLook { l -> l.copy(progressive = it) } }, "Progressive blur", summary = "Top bar")
+                    ThemedSwitch(look.progressive, { BixbyEngine.updateLook { l -> l.copy(progressive = it) } }, "Progressive blur", summary = "Top bar")
                 }
-                SwitchPreference(look.scrollHaptic, { BixbyEngine.updateLook { l -> l.copy(scrollHaptic = it) } }, "Scroll end haptic")
+                ThemedSwitch(look.scrollHaptic, { BixbyEngine.updateLook { l -> l.copy(scrollHaptic = it) } }, "Scroll end haptic")
             }
         } } }
 
@@ -204,7 +204,7 @@ fun SettingsScreen(padding: PaddingValues) {
                 ArrowPreference("Power button", summary = "Set long-press to the assistant, not Xiao AI. Additional settings, Button shortcuts.",
                     onClick = { Toast.makeText(ctx, "Additional settings > Button shortcuts > long-press power", Toast.LENGTH_LONG).show(); go(ctx, Intent(Settings.ACTION_SETTINGS)) })
                 ArrowPreference("Quick Settings tile", summary = "Add a Bixby tile", onClick = { addTile(ctx) })
-                SwitchPreference(vol, { vol = it; prefs.volumeCombo = it }, "Volume keys", summary = "Volume up and down together. Needs screen control.")
+                ThemedSwitch(vol, { vol = it; prefs.volumeCombo = it }, "Volume keys", summary = "Volume up and down together. Needs screen control.")
             } }
         } } }
 
@@ -243,10 +243,10 @@ fun SettingsScreen(padding: PaddingValues) {
         item { Stagger(5) { Column {
             SmallTitle("Behavior")
             Group {
-                SwitchPreference(orb, { orb = it; prefs.orbEnabled = it; if (it) OverlayService.start(ctx) else OverlayService.stop(ctx) }, "Floating icon", summary = "Show Bixby over other apps")
-                SwitchPreference(gesture, { gesture = it; prefs.gestureWake = it; if (orb) { OverlayService.stop(ctx); OverlayService.start(ctx) } },
+                ThemedSwitch(orb, { orb = it; prefs.orbEnabled = it; if (it) OverlayService.start(ctx) else OverlayService.stop(ctx) }, "Floating icon", summary = "Show Bixby over other apps")
+                ThemedSwitch(gesture, { gesture = it; prefs.gestureWake = it; if (orb) { OverlayService.stop(ctx); OverlayService.start(ctx) } },
                     "Gesture wake-up", summary = "Raise the phone to your mouth. Experimental, needs the floating icon.")
-                SwitchPreference(describe, { describe = it; prefs.autoDescribe = it }, "Describe the screen", summary = "Say what is on screen when Bixby opens")
+                ThemedSwitch(describe, { describe = it; prefs.autoDescribe = it }, "Describe the screen", summary = "Say what is on screen when Bixby opens")
             }
         } } }
     }

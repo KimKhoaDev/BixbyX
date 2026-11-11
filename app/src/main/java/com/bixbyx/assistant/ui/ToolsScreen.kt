@@ -110,10 +110,9 @@ private fun DiagnosticsScreen(padding: PaddingValues, onBack: () -> Unit) {
             }
         }
         item {
-            Button({ if (!busy) { busy = true; scope.launch { report = runCatching { BixbyEngine.diagnose(h) }.getOrElse { "Error: ${it.message}" }; busy = false } } },
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp), colors = ButtonDefaults.buttonColorsPrimary()) {
-                Text(if (busy) "Checking" else "Check with Bixby", color = MiuixTheme.colorScheme.onPrimary)
-            }
+            ThemedButton(if (busy) "Checking" else "Check with Bixby",
+                { if (!busy) { busy = true; scope.launch { report = runCatching { BixbyEngine.diagnose(h) }.getOrElse { "Error: ${it.message}" }; busy = false } } },
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp), primary = true)
         }
         if (report.isNotEmpty()) item { Group { Text(report, Modifier.padding(16.dp), style = MiuixTheme.textStyles.body1) } }
     }
@@ -138,9 +137,7 @@ private fun InterpreterScreen(padding: PaddingValues, onBack: () -> Unit) {
                 TextField(input, { input = it }, Modifier.fillMaxWidth().padding(12.dp), label = "Text or speech", minLines = 3)
                 Row(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton({ BixbyEngine.listenInto { input = it; go() } }) { Icon(MiuixIcons.Mic, "Speak", tint = MiuixTheme.colorScheme.primary) }
-                    Button(::go, Modifier.weight(1f), colors = ButtonDefaults.buttonColorsPrimary()) {
-                        Text(if (busy) "Translating" else "Translate", color = MiuixTheme.colorScheme.onPrimary)
-                    }
+                    ThemedButton(if (busy) "Translating" else "Translate", ::go, Modifier.weight(1f), primary = true)
                 }
             }
         }
@@ -188,9 +185,7 @@ private fun SkillsScreen(padding: PaddingValues, onBack: () -> Unit) {
             item {
                 Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (e.isNotEmpty()) TextButton("Delete", { Skills.delete(e); tick++; editing = null }, Modifier.weight(1f))
-                    Button({ if (name.isNotBlank() && body.isNotBlank()) { Skills.save(name, body); tick++; editing = null } }, Modifier.weight(1f), colors = ButtonDefaults.buttonColorsPrimary()) {
-                        Text("Save", color = MiuixTheme.colorScheme.onPrimary)
-                    }
+                    ThemedButton("Save", { if (name.isNotBlank() && body.isNotBlank()) { Skills.save(name, body); tick++; editing = null } }, Modifier.weight(1f), primary = true)
                 }
             }
         }
