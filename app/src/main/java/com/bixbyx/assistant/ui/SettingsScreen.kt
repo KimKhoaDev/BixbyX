@@ -50,6 +50,7 @@ private val NavPositions = listOf("Center", "Start", "End")
 private val Palettes = ThemePaletteStyle.entries.map { it.name }
 private val Specs = ThemeColorSpec.entries.map { it.name }
 private val KeyNames = listOf("Default") + KeyColors.map { it.first }
+private val FishModels = listOf("s2.1-pro", "s2-pro", "s1")
 private val Engines = listOf("Auto", "Fish Audio", "Phone")
 private val EngineKeys = listOf("auto", "fish", "system")
 
@@ -110,6 +111,9 @@ fun SettingsScreen(padding: PaddingValues) {
     var tts by remember { mutableIntStateOf(EngineKeys.indexOf(prefs.ttsEngine).coerceAtLeast(0)) }
     var stt by remember { mutableIntStateOf(EngineKeys.indexOf(prefs.sttEngine).coerceAtLeast(0)) }
     var speak by remember { mutableStateOf(prefs.speak) }
+    var fishModel by remember { mutableIntStateOf(FishModels.indexOf(prefs.fishModel).coerceAtLeast(0)) }
+    var voiceMsg by remember { mutableStateOf("") }
+    val voiceError by BixbyEngine.voiceError.collectAsState()
 
     var orb by remember { mutableStateOf(prefs.orbEnabled) }
     var gesture by remember { mutableStateOf(prefs.gestureWake) }
@@ -152,13 +156,19 @@ fun SettingsScreen(padding: PaddingValues) {
             Group {
                 Field(fishKey, { fishKey = it }, "Fish Audio API key", secret = true)
                 Field(fishVoice, { fishVoice = it }, "Voice model ID (optional)")
+                OverlayDropdownPreference(FishModels, fishModel, "Voice model", onSelectedIndexChange = { fishModel = it; prefs.fishModel = FishModels[it] })
                 OverlayDropdownPreference(Engines, tts, "Speech output", onSelectedIndexChange = { tts = it; saveVoice() })
                 OverlayDropdownPreference(Engines, stt, "Speech input", onSelectedIndexChange = { stt = it; saveVoice() })
                 ThemedSwitch(speak, { speak = it; prefs.speak = it }, "Speak replies")
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemedButton("Save", { saveVoice(); BixbyEngine.notify("Saved") }, Modifier.weight(1f))
-                    ThemedButton("Test voice", { saveVoice(); BixbyEngine.testVoice() }, Modifier.weight(1f), primary = true)
+                    ThemedButton("Test voice", { saveVoice(); voiceMsg = "Testing voice"; scope.launch { voiceMsg = BixbyEngine.testSpeech() } }, Modifier.weight(1f), primary = true)
                 }
+                Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                    ThemedButton("Test microphone", { saveVoice(); voiceMsg = "Listening, say something"; scope.launch { voiceMsg = BixbyEngine.testMic() } }, Modifier.weight(1f))
+                }
+                if (voiceMsg.isNotEmpty()) Text(voiceMsg, Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1)
+                if (voiceError.isNotEmpty()) Text("Last error: $voiceError", Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp), color = MiuixTheme.colorScheme.error, style = MiuixTheme.textStyles.footnote1)
             }
         } } }
 

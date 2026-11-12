@@ -37,6 +37,7 @@ object BixbyEngine {
     val notice = MutableStateFlow("")
     val level = MutableStateFlow(0f)
     val panelOpen = MutableStateFlow(false)
+    val voiceError = MutableStateFlow("")
     val look = MutableStateFlow(Look(0, 0, 0, 0, true, 0, 0, true))
 
     fun init(ctx: Context) {
@@ -186,7 +187,9 @@ object BixbyEngine {
             { resetListen(); onText(it) }, { resetListen(); notify(it) })
     }
 
-    fun testVoice() = voice.speak("Hi, I'm Bixby. This is how I sound.", interrupt = true)
+    fun testVoice() { scope.launch { notify(voice.testSpeech()) } }
+    suspend fun testSpeech(): String = voice.testSpeech()
+    suspend fun testMic(): String = voice.testMic()
 
     fun stop() { job?.cancel(); voice.stop(); resetListen(); status.value = "" }
     fun speak(t: String) = voice.speak(t, interrupt = true)

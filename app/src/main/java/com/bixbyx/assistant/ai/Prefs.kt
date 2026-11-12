@@ -42,7 +42,7 @@ class Prefs(ctx: Context) {
     var fishVoice: String
         get() = sp.getString("fish_voice", "") ?: ""; set(v) = sp.edit().putString("fish_voice", v.trim()).apply()
     var fishModel: String
-        get() = sp.getString("fish_model", "s2-pro") ?: "s2-pro"; set(v) = sp.edit().putString("fish_model", v.trim()).apply()
+        get() = sp.getString("fish_model", "s2.1-pro") ?: "s2.1-pro"; set(v) = sp.edit().putString("fish_model", v.trim()).apply()
     /** auto = Fish Audio when a key is set, else the phone's own engine. */
     var ttsEngine: String
         get() = sp.getString("tts_engine", "auto") ?: "auto"; set(v) = sp.edit().putString("tts_engine", v).apply()
@@ -50,6 +50,8 @@ class Prefs(ctx: Context) {
         get() = sp.getString("stt_engine", "auto") ?: "auto"; set(v) = sp.edit().putString("stt_engine", v).apply()
     var autoDescribe: Boolean
         get() = sp.getBoolean("auto_describe", true); set(v) = sp.edit().putBoolean("auto_describe", v).apply()
+    var haptics: Boolean
+        get() = sp.getBoolean("haptics", true); set(v) = sp.edit().putBoolean("haptics", v).apply()
     val useFishTts get() = fishKey.isNotBlank() && ttsEngine != "system"
     val useFishStt get() = fishKey.isNotBlank() && sttEngine != "system"
 

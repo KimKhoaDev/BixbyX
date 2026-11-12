@@ -22,6 +22,20 @@ class VoiceController(private val ctx: Context, private val prefs: Prefs) {
     private var rec: SpeechRecognizer? = null
     private var micJob: Job? = null
 
+    suspend fun testSpeech(): String = speaker.test("Hi, this is Bixby. How do I sound?")
+
+    /** Records one phrase and sends it to Fish Audio, returning the transcript or the error. */
+    suspend fun testMic(): String {
+        if (!prefs.useFishStt) return "Speech input is set to the phone recognizer. Use the mic button on Home to try it."
+        val wav = MicRecorder.record(ctx, { BixbyEngine.level.value = it }) ?: return "Nothing heard. Check the microphone permission and speak after tapping."
+        return try {
+            val t = FishAudio.asr(prefs, wav)
+            BixbyEngine.voiceError.value = ""
+            if (t.isBlank()) "Fish Audio heard no words" else "Heard: $t"
+        } catch (e: CancellationException) { throw e
+        } catch (e: Exception) { BixbyEngine.voiceError.value = "Fish Audio ${e.message}"; "Fish Audio ${e.message}" }
+    }
+
     fun speak(t: String, interrupt: Boolean = false) = speaker.speak(t, interrupt)
     fun stopSpeaking() = speaker.stop()
     fun stop() { micJob?.cancel(); rec?.cancel(); speaker.stop() }
@@ -45,7 +59,7 @@ class VoiceController(private val ctx: Context, private val prefs: Prefs) {
                 if (t.isBlank()) onFail("Didn't catch that") else onResult(t)
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) {
-                BixbyEngine.notify("Fish Audio: ${e.message?.take(50)} — trying phone recognizer")
+                BixbyEngine.voiceError.value = "Fish Audio ${e.message}"; BixbyEngine.notify("Fish Audio failed, trying the phone recognizer")
                 listenSystem(onPartial, onResult, onFail)
             }
         }

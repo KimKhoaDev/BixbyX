@@ -56,9 +56,22 @@ class Speaker(private val ctx: Context, private val prefs: Prefs) {
         if (prefs.useFishTts) {
             try { play(FishAudio.tts(prefs, text)); return }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { BixbyEngine.notify("Fish Audio: ${e.message?.take(60)} — using phone voice") }
+            catch (e: Exception) { BixbyEngine.voiceError.value = "Fish Audio ${e.message}"; BixbyEngine.notify("Fish Audio failed, using the phone voice") }
         }
         speakSystem(text)
+    }
+
+    /** Plays one phrase and reports what happened. */
+    suspend fun test(text: String): String {
+        stop()
+        if (prefs.useFishTts) {
+            return try { play(FishAudio.tts(prefs, text)); BixbyEngine.voiceError.value = ""; "Fish Audio voice works" }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { BixbyEngine.voiceError.value = "Fish Audio ${e.message}"; "Fish Audio ${e.message}" }
+        }
+        if (!sysReady) return "No phone speech engine found. Add a Fish Audio key."
+        speakSystem(text)
+        return "Played with the phone voice"
     }
 
     private suspend fun play(bytes: ByteArray) = withContext(Dispatchers.Main) {
