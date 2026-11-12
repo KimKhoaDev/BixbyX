@@ -17,7 +17,7 @@ object FishAudio {
     private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS).build()
 
-    val ttsModels = listOf("s2.1-pro", "s2-pro", "s1")
+    val ttsModels = listOf("s2.1-pro-free", "s2.1-pro", "s2-pro", "s1")
     private val asrModels = listOf("transcribe-1-pro", "transcribe-1")
     private val fatal = listOf(401, 402, 403, 429)   // another model will not fix these
 
@@ -31,9 +31,15 @@ object FishAudio {
 
     suspend fun tts(prefs: Prefs, text: String): ByteArray = withContext(Dispatchers.IO) {
         var last: FishError? = null
-        for (m in (listOf(prefs.fishModel) + ttsModels).filter { it.isNotBlank() }.distinct()) {
+        val models = (listOf(prefs.fishModel) + ttsModels).filter { it.isNotBlank() }.distinct()
+        for (m in models) {
             try { return@withContext callTts(prefs, text, m) }
-            catch (e: FishError) { last = e; if (e.code in fatal) throw e }
+            catch (e: FishError) {
+                last = e
+                // out of credit on a paid model: the free model may still work
+                val freeLeft = e.code == 402 && models.any { it.endsWith("-free") && it != m }
+                if (e.code in fatal && !freeLeft) throw e
+            }
         }
         throw last ?: FishError(0, "no response")
     }

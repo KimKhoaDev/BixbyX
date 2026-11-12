@@ -51,7 +51,7 @@ private val NavPositions = listOf("Center", "Start", "End")
 private val Palettes = ThemePaletteStyle.entries.map { it.name }
 private val Specs = ThemeColorSpec.entries.map { it.name }
 private val KeyNames = listOf("Default") + KeyColors.map { it.first }
-private val FishModels = listOf("s2.1-pro", "s2-pro", "s1")
+private val FishModels = listOf("s2.1-pro-free", "s2.1-pro", "s2-pro", "s1")
 private val Engines = listOf("Auto", "Fish Audio", "Phone")
 private val EngineKeys = listOf("auto", "fish", "system")
 
