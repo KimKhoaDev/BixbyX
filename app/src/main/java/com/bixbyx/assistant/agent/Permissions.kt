@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,7 +18,7 @@ object Permissions {
     private const val PKG = "com.bixbyx.assistant"
     private const val A11Y = "$PKG/$PKG.service.AgentAccessibilityService"
     private const val VIS = "$PKG/$PKG.service.BixbyVoiceInteractionService"
-    private val runtime = listOf(Manifest.permission.RECORD_AUDIO to "Microphone", Manifest.permission.CALL_PHONE to "Phone calls")
+    private val runtime = listOf(Manifest.permission.RECORD_AUDIO to "Microphone", Manifest.permission.CALL_PHONE to "Phone calls", Manifest.permission.READ_CALENDAR to "Calendar")
     private var lastTry = 0L
 
     private fun has(ctx: Context, p: String) = ContextCompat.checkSelfPermission(ctx, p) == PackageManager.PERMISSION_GRANTED
@@ -32,6 +33,7 @@ object Permissions {
         if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) add("All files access")
         if (!secure(ctx, "enabled_accessibility_services").contains(A11Y)) add("Screen control")
         if (!(secure(ctx, "assistant").startsWith(PKG) || secure(ctx, "voice_interaction_service").startsWith(PKG))) add("Default assistant")
+        if (!NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(PKG)) add("Notification access")
         if (!ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(PKG)) add("Battery")
     }
 
@@ -59,6 +61,7 @@ object Permissions {
             sh("Default assistant", "settings put secure assistant $VIS")
             sh(null, "settings put secure voice_interaction_service $VIS")
         }
+        if (!NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(PKG)) sh("Notification access", "cmd notification allow_listener $PKG/$PKG.service.NotifyListener")
         if (!ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(PKG)) sh("Battery", "dumpsys deviceidle whitelist +$PKG")
         // background and pop-up rights; best effort, the numbered ops are Xiaomi's (pop-ups, lock screen, autostart)
         listOf("RUN_IN_BACKGROUND", "RUN_ANY_IN_BACKGROUND", "10021", "10020", "10008").forEach { sh(null, "appops set $PKG $it allow") }

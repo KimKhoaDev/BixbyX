@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.Settings
 import com.bixbyx.assistant.service.AgentAccessibilityService
+import com.bixbyx.assistant.service.NotifyListener
 import org.json.JSONObject
 
 /** One action chosen by the model. */
@@ -84,6 +85,9 @@ object DeviceActions {
             "device_info" -> Diagnostics.read(ctx).asText()
             "memory_add" -> Tools.memoryAdd(a.text)
             "use_skill" -> Skills.read(a.name)?.let { "Skill instructions. Follow them now with the other tools:\n$it" } ?: "No skill named '${a.name}'. Available:\n${Skills.summary()}"
+            "read_notifications" -> NotifyListener.instance?.snapshot()?.ifBlank { "No notifications" } ?: "Notification access is off. Turn it on in Settings."
+            "clear_notifications" -> NotifyListener.instance?.let { it.cancelAllNotifications(); "OK" } ?: "Notification access is off. Turn it on in Settings."
+            "calendar" -> Tools.calendar(ctx, if (a.value > 0) a.value else 1)
             "speak" -> { BixbyEngine.speak(a.text); "OK" }
             else -> "Unknown action '${a.action}'"
         }

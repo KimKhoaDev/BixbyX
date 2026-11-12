@@ -38,6 +38,8 @@ object BixbyEngine {
     val level = MutableStateFlow(0f)
     val panelOpen = MutableStateFlow(false)
     val voiceError = MutableStateFlow("")
+    /** Text picked in another app ("Ask Bixby" in the text menu, or shared to Bixby). */
+    val pendingText = MutableStateFlow<String?>(null)
     val look = MutableStateFlow(Look(0, 0, 0, 0, true, 0, 0, true))
 
     fun init(ctx: Context) {
@@ -140,6 +142,7 @@ object BixbyEngine {
             try {
                 val r = AgentLoop(app, prefs).run(text, messages.value, ui())
                 add(Msg(r.text, false, controls = r.controls, steps = steps.value)); steps.value = emptyList()
+                if (prefs.haptics) Haptics.click(app)
                 if (prefs.speak) voice.speak(r.text, interrupt = true)
             } catch (e: CancellationException) { add(Msg("Stopped.", false, steps = steps.value)); steps.value = emptyList(); throw e
             } catch (e: Exception) { add(Msg("Error: ${friendly(e)}", false, steps = steps.value)); steps.value = emptyList() }
@@ -175,7 +178,14 @@ object BixbyEngine {
 
     private fun resetListen() { partial.value = ""; level.value = 0f; state.value = BState.Idle }
 
+    fun askAbout(instruction: String) {
+        val t = pendingText.value ?: return
+        pendingText.value = null
+        send("$instruction:\n\n$t")
+    }
+
     fun listen() {
+        if (prefs.haptics) Haptics.tick(app)
         state.value = BState.Listening; partial.value = ""
         voice.listen(scope, { level.value = it }, { partial.value = it },
             { resetListen(); send(it) }, { resetListen(); notify(it) })

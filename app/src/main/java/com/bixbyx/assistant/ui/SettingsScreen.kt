@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -118,6 +119,7 @@ fun SettingsScreen(padding: PaddingValues) {
     var orb by remember { mutableStateOf(prefs.orbEnabled) }
     var gesture by remember { mutableStateOf(prefs.gestureWake) }
     var describe by remember { mutableStateOf(prefs.autoDescribe) }
+    var haptics by remember { mutableStateOf(prefs.haptics) }
     var vol by remember { mutableStateOf(prefs.volumeCombo) }
 
     fun saveAi() { prefs.provider = provider; prefs.setKey(provider, apiKey); prefs.setModel(provider, model); prefs.customUrl = url }
@@ -245,6 +247,10 @@ fun SettingsScreen(padding: PaddingValues) {
                 ArrowPreference("Shizuku", summary = if (ShizukuShell.running()) "Running" else "Not running", onClick = {
                     if (ShizukuShell.running()) { ShizukuShell.request(); tick++ } else go(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))) }, endActions = { StatusText(shizuku) })
                 ArrowPreference("Modify system settings", onClick = { go(ctx, Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(write) })
+                val notif = NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName)
+                val cal = ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+                ArrowPreference("Notification access", summary = "Lets Bixby read and summarize notifications", onClick = { go(ctx, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }, endActions = { StatusText(notif) })
+                ArrowPreference("Calendar", summary = "Lets Bixby read your events", onClick = { go(ctx, appDetails(ctx)) }, endActions = { StatusText(cal) })
                 ArrowPreference("Autostart and battery", summary = "Autostart on, battery set to No restrictions", onClick = { openXiaomi(ctx) })
             } }
         } } }
@@ -257,6 +263,7 @@ fun SettingsScreen(padding: PaddingValues) {
                 ThemedSwitch(gesture, { gesture = it; prefs.gestureWake = it; if (orb) { OverlayService.stop(ctx); OverlayService.start(ctx) } },
                     "Gesture wake-up", summary = "Raise the phone to your mouth. Experimental, needs the floating icon.")
                 ThemedSwitch(describe, { describe = it; prefs.autoDescribe = it }, "Describe the screen", summary = "Say what is on screen when Bixby opens")
+                ThemedSwitch(haptics, { haptics = it; prefs.haptics = it }, "Haptic feedback", summary = "Vibrate when Bixby listens and answers")
             }
         } } }
     }

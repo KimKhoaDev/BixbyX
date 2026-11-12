@@ -3,6 +3,8 @@ package com.bixbyx.assistant.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import com.bixbyx.assistant.agent.Tools
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.bixbyx.assistant.agent.BixbyEngine
@@ -36,6 +38,7 @@ private fun relTime(ts: Long): String {
 
 @Composable
 fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
+    val ctx = LocalContext.current
     val chats by BixbyEngine.chats.collectAsState()
     val cur by BixbyEngine.currentId.collectAsState()
     var query by remember { mutableStateOf("") }
@@ -66,6 +69,9 @@ fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
     OverlayDialog(show = menu != null, title = menu?.title, onDismissRequest = { menu = null }) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton("Rename", { renaming = menu; menu = null }, Modifier.weight(1f))
+            TextButton("Share", {
+                menu?.let { c -> Tools.share(ctx, "# ${c.title}\n\n" + c.messages.joinToString("\n\n") { (if (it.user) "**You:** " else "**Bixby:** ") + it.text }) }
+                menu = null }, Modifier.weight(1f))
             TextButton("Delete", { menu?.let { BixbyEngine.deleteChat(it.id) }; menu = null }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
         }
     }

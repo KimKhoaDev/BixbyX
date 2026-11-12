@@ -1,5 +1,10 @@
 package com.bixbyx.assistant.agent
 
+import android.Manifest
+import android.content.ContentUris
+import android.content.pm.PackageManager
+import android.provider.CalendarContract
+import androidx.core.content.ContextCompat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -179,6 +184,29 @@ object Tools {
             else -> Settings.ACTION_SETTINGS
         }
         return runCatching { ctx.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "OK" }.getOrElse { "Failed: ${it.message}" }
+    }
+
+    // ------------------------------------------------------------------ calendar
+    fun calendar(ctx: Context, days: Int): String {
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED)
+            return "Calendar permission is off. Grant it in Settings."
+        val d = days.coerceIn(1, 14)
+        val now = System.currentTimeMillis()
+        val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also { ContentUris.appendId(it, now); ContentUris.appendId(it, now + d * 86_400_000L) }.build()
+        val timed = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.getDefault())
+        val dated = java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault())
+        val out = ArrayList<String>()
+        ctx.contentResolver.query(uri, arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.EVENT_LOCATION, CalendarContract.Instances.ALL_DAY), null, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { c ->
+            while (c.moveToNext() && out.size < 30) {
+                val title = c.getString(0).orEmpty().ifBlank { "(no title)" }
+                val begin = java.util.Date(c.getLong(1))
+                val loc = c.getString(2).orEmpty()
+                val whenText = if (c.getInt(3) == 1) dated.format(begin) + " all day" else timed.format(begin)
+                out += "$whenText  $title" + if (loc.isNotBlank()) " ($loc)" else ""
+            }
+        }
+        return out.joinToString("\n").ifBlank { "No events in the next $d day(s)" }
     }
 
     // ------------------------------------------------------------------ memory

@@ -95,7 +95,7 @@ private fun MessageView(m: Msg, last: Boolean) {
     } else {
         Column {
             ToolSteps(m.steps, running = false, defaultOpen = false)
-            Panel(Modifier.padding(horizontal = 12.dp)) { Text(m.text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MiuixTheme.textStyles.body1) }
+            Panel(Modifier.padding(horizontal = 12.dp)) { Markdown(m.text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) }
             m.controls.forEach { ControlCard(it) }
             Row(Modifier.padding(start = 12.dp, top = 2.dp)) {
                 IconButton({ Tools.clipboardSet(ctx, m.text); BixbyEngine.notify("Copied") }) { Icon(MiuixIcons.Copy, "Copy", tint = c.onSurfaceVariantActions) }
@@ -118,7 +118,13 @@ fun LazyListScope.messageItems(list: List<Msg>) {
 
 @Composable
 fun QuickChips(onPick: (String) -> Unit = ::runQuick) {
-    val chips = listOf("What's on my screen?", "Turn on flashlight", "Open YouTube", "Set an alarm for 7:00", "Turn off Wi-Fi", "Set volume to 40%")
+    val hour = remember { java.time.LocalTime.now().hour }
+    val timed = when (hour) {
+        in 5..11 -> listOf("Summarize my notifications", "What's on my calendar today?")
+        in 12..17 -> listOf("What's on my calendar today?", "Summarize my notifications")
+        else -> listOf("Turn on dark mode", "Set an alarm for 7:00", "Set brightness to 30%")
+    }
+    val chips = (timed + listOf("What's on my screen?", "Turn on flashlight", "Open YouTube", "Turn off Wi-Fi", "Set volume to 40%")).distinct()
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         itemsIndexed(chips) { i, text ->
             var shown by remember { mutableStateOf(false) }
@@ -198,6 +204,21 @@ fun InputBar(modifier: Modifier = Modifier) {
     }
 }
 
+/** Text picked in another app, with the usual things to do with it. */
+@Composable
+fun SelectedText() {
+    val text by BixbyEngine.pendingText.collectAsState()
+    val t = text ?: return
+    val actions = listOf("Summarize", "Explain", "Translate to English", "Reply to this", "Fix grammar", "List the tasks")
+    Card(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(t.take(400), maxLines = 5, color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)
+            Spacer(Modifier.height(10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(actions) { a -> Pill(a) { BixbyEngine.askAbout(a) } } }
+        }
+    }
+}
+
 /** Assist popup and overlay panel: the timeline and replies sit above the bar. */
 @Composable
 fun BixbySheet(visible: Boolean, onDismiss: () -> Unit) {
@@ -215,6 +236,7 @@ fun BixbySheet(visible: Boolean, onDismiss: () -> Unit) {
             enter = slideInVertically(spring(dampingRatio = .78f, stiffness = 320f)) { it / 2 } + fadeIn(tween(220)),
             exit = slideOutVertically(tween(260)) { it / 2 } + fadeOut(tween(200))) {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().clickable(enabled = false) {}) {
+                SelectedText()
                 if (msgs.isEmpty() && steps.isEmpty()) QuickChips()
                 else LazyColumn(Modifier.heightIn(max = 340.dp), state = list) {
                     messageItems(msgs.takeLast(4))

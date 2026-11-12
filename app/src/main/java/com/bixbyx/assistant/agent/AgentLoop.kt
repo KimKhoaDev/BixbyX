@@ -28,7 +28,7 @@ Phone: open_app{text} open_url{text} tap{id} tap_xy{x,y} long_press{x,y} type{te
   flashlight{on} volume{value:0-100} brightness{value:1-100} alarm{hour,minute,text} timer{value:seconds} call{text} open_settings{text:wifi|bluetooth|display|sound|battery|apps|location|storage} device_info speak{text}
 System: run_command{text} (adb-level when Shizuku is on: svc wifi enable|disable, svc data enable|disable, cmd bluetooth_manager enable|disable, cmd uimode night yes|no, am force-stop <pkg>, input keyevent <n>)
 Files (workspace, or /storage/emulated/0): read_file{path} write_file{path,text,append} edit_file{path,old,new} list_dir{path} search_files{path,text} delete_file{path} (delete: workspace only)
-Web and data: web_search{text} web_fetch{text:url} clipboard_get clipboard_set{text} share{text} memory_add{text} use_skill{name}
+Web and data: web_search{text} web_fetch{text:url} clipboard_get clipboard_set{text} share{text} memory_add{text} use_skill{name} read_notifications clear_notifications calendar{value:days}
 Finish: done{say}
 Rules:
 - Prefer direct actions over tapping. Tap by the [id] in the screen list.
@@ -134,6 +134,9 @@ ${Skills.matching(task).joinToString("\n") { (n, body) -> "\nSkill '$n' (already
         "memory_add" -> "Saving to memory"
         "use_skill" -> "Using skill ${a.name}"
         "device_info" -> "Checking the device"
+        "read_notifications" -> "Reading notifications"
+        "clear_notifications" -> "Clearing notifications"
+        "calendar" -> "Checking the calendar"
         "speak" -> "Speaking"
         else -> a.action.replace('_', ' ').replaceFirstChar { it.uppercase() }
     }

@@ -1,5 +1,6 @@
 package com.bixbyx.assistant
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,11 +20,24 @@ import com.bixbyx.assistant.ui.BixbyTheme
 
 /** The popup that appears over the current app on assistant gesture, widget tap, tile or volume shortcut. */
 class AssistActivity : ComponentActivity() {
+    /** Text picked in another app: the "Ask Bixby" entry in the text menu, or text shared to Bixby. */
+    private fun sharedText(i: Intent): String? =
+        (i.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() ?: if (i.action == Intent.ACTION_SEND) i.getStringExtra(Intent.EXTRA_TEXT) else null)
+            ?.takeIf { it.isNotBlank() }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        sharedText(intent)?.let { BixbyEngine.pendingText.value = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         BixbyEngine.init(this)
-        val listen = intent.getBooleanExtra("listen", false)
+        val shared = sharedText(intent)
+        if (shared != null) BixbyEngine.pendingText.value = shared
+        val listen = intent.getBooleanExtra("listen", false) && shared == null
         // grab what's on screen right now (before this popup takes focus) and say it
         val describing = listen && BixbyEngine.prefs.autoDescribe && AgentAccessibilityService.running()
         if (describing) BixbyEngine.describeScreen()

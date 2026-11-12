@@ -15,6 +15,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.READ_CALENDAR"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <queries>
         <intent><action android:name="android.intent.action.MAIN"/></intent>
@@ -34,13 +35,23 @@
         </activity>
 
         <!-- Bottom-sheet assistant popup (like real Bixby). Opened by power-button long-press / assist gesture -->
-        <activity android:name=".AssistActivity" android:exported="true"
+        <activity android:name=".AssistActivity" android:exported="true" android:label="Ask Bixby"
             android:theme="@style/Theme.BixbyX.Popup" android:excludeFromRecents="true"
             android:launchMode="singleTask" android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST"/>
                 <action android:name="android.intent.action.VOICE_COMMAND"/>
                 <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
 
@@ -78,6 +89,11 @@
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
 
         <!-- AI screen control -->
+        <service android:name=".service.NotifyListener" android:exported="true" android:label="Bixby notifications"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
+        </service>
+
         <service android:name=".service.AgentAccessibilityService" android:exported="true"
             android:label="Bixby Screen Control"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">

@@ -34,6 +34,9 @@ fun HomeScreen(padding: PaddingValues) {
             Column(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 BixbyOrb(state, 120.dp)
                 Spacer(Modifier.height(14.dp))
+                val greeting = remember { when (java.time.LocalTime.now().hour) { in 5..11 -> "Good morning"; in 12..17 -> "Good afternoon"; else -> "Good evening" } }
+                Text(greeting, style = MiuixTheme.textStyles.title4)
+                Spacer(Modifier.height(4.dp))
                 Text("Ask Bixby", color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body1)
             }
         }
