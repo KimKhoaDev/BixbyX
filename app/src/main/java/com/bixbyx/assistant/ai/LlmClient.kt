@@ -22,10 +22,10 @@ object LlmClient {
     private val base = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).writeTimeout(30, TimeUnit.SECONDS).build()
 
     suspend fun chat(prefs: Prefs, messages: List<Pair<String, String>>, temperature: Double = 0.2,
-                     onRetry: (String) -> Unit = {}): String {
+                     imageB64: String? = null, extraImages: List<String> = emptyList(), onRetry: (String) -> Unit = {}): String {
         var last: Exception? = null
         for (attempt in 1..3) {
-            try { return once(prefs, messages, temperature) }
+            try { return once(prefs, messages, temperature, listOfNotNull(imageB64) + extraImages) }
             catch (e: CancellationException) { throw e }
             catch (e: HttpError) {
                 if (e.code != 429 && e.code < 500) throw e
@@ -36,14 +36,20 @@ object LlmClient {
         throw last ?: IOException("Request failed")
     }
 
-    private suspend fun once(prefs: Prefs, messages: List<Pair<String, String>>, temperature: Double): String =
+    private suspend fun once(prefs: Prefs, messages: List<Pair<String, String>>, temperature: Double, images: List<String>): String =
         withContext(Dispatchers.IO) {
             val b = prefs.baseUrl.trim().trimEnd('/')
             require(b.isNotEmpty()) { "Set a base URL in Settings" }
             require(prefs.key().isNotEmpty()) { "Add your ${prefs.provider.label} API key in Settings" }
             val url = if (b.endsWith("/chat/completions")) b else "$b/chat/completions"
             val arr = JSONArray()
-            messages.forEach { arr.put(JSONObject().put("role", it.first).put("content", it.second)) }
+            messages.forEachIndexed { i, m ->
+                if (images.isNotEmpty() && i == messages.lastIndex && m.first == "user") {
+                    val parts = JSONArray().put(JSONObject().put("type", "text").put("text", m.second))
+                    images.forEach { parts.put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", "data:image/jpeg;base64,$it"))) }
+                    arr.put(JSONObject().put("role", m.first).put("content", parts))
+                } else arr.put(JSONObject().put("role", m.first).put("content", m.second))
+            }
             val body = JSONObject().put("model", prefs.model()).put("messages", arr)
                 .put("temperature", temperature).put("max_tokens", 700)
             val req = Request.Builder().url(url)

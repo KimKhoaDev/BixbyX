@@ -35,6 +35,13 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.bixbyx.assistant.agent.AttachmentRef
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.File
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Mic
 import top.yukonga.miuix.kmp.icon.extended.Refresh
@@ -83,12 +90,47 @@ private fun ControlCard(ctl: Ctl) {
     }
 }
 
+/** Opens the file picker. Null in overlay windows, which cannot launch one. */
+@Composable
+fun rememberAttachPicker(): (() -> Unit)? {
+    if (LocalActivityResultRegistryOwner.current == null) return null
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> uris.forEach { BixbyEngine.addAttachment(it) } }
+    return { launcher.launch(arrayOf("*/*")) }
+}
+
+@Composable
+private fun AttachmentChip(ref: AttachmentRef) {
+    val c = MiuixTheme.colorScheme
+    Row(Modifier.clip(RoundedCornerShape(50)).background(c.onSurface.copy(alpha = .08f)).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(MiuixIcons.File, null, Modifier.size(14.dp), tint = c.onSurfaceVariantSummary)
+        Spacer(Modifier.width(6.dp))
+        Text(ref.name.substringAfter('-').take(26), color = c.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1, maxLines = 1)
+    }
+}
+
+/** Files picked for the next message, with a button to remove each. */
+@Composable
+fun PendingAttachments() {
+    val list by BixbyEngine.attachments.collectAsState()
+    if (list.isEmpty()) return
+    val c = MiuixTheme.colorScheme
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 28.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+        items(list, key = { it.id }) { a ->
+            Row(Modifier.clip(RoundedCornerShape(50)).background(c.surfaceContainer).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(a.name.substringAfter('-').take(22), maxLines = 1, style = MiuixTheme.textStyles.footnote1, color = c.onSurface)
+                IconButton({ BixbyEngine.removeAttachment(a.id) }, Modifier.size(32.dp)) { Icon(MiuixIcons.Close, "Remove", Modifier.size(14.dp), tint = c.onSurfaceVariantSummary) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun MessageView(m: Msg, last: Boolean) {
     val c = MiuixTheme.colorScheme
     val ctx = LocalContext.current
     if (m.user) {
-        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp), contentAlignment = Alignment.CenterEnd) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            m.attachments.forEach { AttachmentChip(it) }
             Text(m.text, Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp))
                 .background(c.primary).padding(horizontal = 14.dp, vertical = 10.dp), color = c.onPrimary, style = MiuixTheme.textStyles.body1)
         }
@@ -124,7 +166,7 @@ fun QuickChips(onPick: (String) -> Unit = ::runQuick) {
         in 12..17 -> listOf("What's on my calendar today?", "Summarize my notifications")
         else -> listOf("Turn on dark mode", "Set an alarm for 7:00", "Set brightness to 30%")
     }
-    val chips = (timed + listOf("What's on my screen?", "Turn on flashlight", "Open YouTube", "Turn off Wi-Fi", "Set volume to 40%")).distinct()
+    val chips = (timed + listOf("What's on my screen?", "Turn on flashlight", "Open YouTube", "Turn off Wi-Fi", "Set volume to 40%", "Play Minecraft and collect wood")).distinct()
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         itemsIndexed(chips) { i, text ->
             var shown by remember { mutableStateOf(false) }
@@ -155,18 +197,19 @@ fun Waveform(active: Boolean, modifier: Modifier = Modifier) {
 
 /** The Bixby bar. It only glows while Bixby is listening or working. */
 @Composable
-fun GlowBar(state: BState, status: String, partial: String, onSend: (String) -> Unit, modifier: Modifier = Modifier) {
+fun GlowBar(state: BState, status: String, partial: String, onSend: (String) -> Unit, modifier: Modifier = Modifier, onAttach: (() -> Unit)? = null) {
+    val pending by BixbyEngine.attachments.collectAsState()
     val c = MiuixTheme.colorScheme
     val notice by BixbyEngine.notice.collectAsState()
-    val active = state != BState.Idle
+    val glowing = state == BState.Thinking || state == BState.Working
     var text by remember { mutableStateOf("") }
     val body = MiuixTheme.textStyles.body1.copy(color = c.onSurface)
     val glass = LocalGlass.current
-    val shell: Modifier = if (glass != null) Modifier.glowAura(active)
+    val shell: Modifier = if (glass != null) Modifier.glowAura(glowing)
         .drawBackdrop(glass, { CircleShape }, effects = { vibrancy(); blur(6.dp.toPx()); lens(14.dp.toPx(), 14.dp.toPx()) },
             onDrawSurface = { drawRect(c.surfaceContainer.copy(alpha = .55f)) })
-        .glowRim(active)
-    else Modifier.glowBar(active, c.surfaceContainer)
+        .glowRim(glowing)
+    else Modifier.glowBar(glowing, c.surfaceContainer)
     Row(modifier.fillMaxWidth().height(52.dp).then(shell).padding(start = 12.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         BixbyOrb(state, 30.dp, hole = c.surfaceContainer)
         Spacer(Modifier.width(10.dp))
@@ -186,8 +229,11 @@ fun GlowBar(state: BState, status: String, partial: String, onSend: (String) -> 
             }
         }
         when {
-            state == BState.Idle && text.isNotBlank() -> IconButton({ onSend(text); text = "" }) { Icon(MiuixIcons.Send, "Send", tint = c.primary) }
-            state == BState.Idle -> IconButton({ BixbyEngine.listen() }) { Icon(MiuixIcons.Mic, "Talk", tint = c.primary) }
+            state == BState.Idle -> Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onAttach != null) IconButton(onAttach) { Icon(MiuixIcons.Add, "Attach a file", tint = c.onSurfaceVariantActions) }
+                if (text.isNotBlank() || pending.isNotEmpty()) IconButton({ onSend(text); text = "" }) { Icon(MiuixIcons.Send, "Send", tint = c.primary) }
+                else IconButton({ BixbyEngine.listen() }) { Icon(MiuixIcons.Mic, "Talk", tint = c.primary) }
+            }
             state == BState.Listening -> Box(Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { BixbyEngine.stop() }.padding(8.dp)) { Waveform(true) }
             else -> IconButton({ BixbyEngine.stop() }) { Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(c.onSurface)) }
         }
@@ -199,8 +245,12 @@ fun InputBar(modifier: Modifier = Modifier) {
     val state by BixbyEngine.state.collectAsState()
     val partial by BixbyEngine.partial.collectAsState()
     val status by BixbyEngine.status.collectAsState()
-    Box(modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-        GlowBar(state, status, partial, { BixbyEngine.send(it) }, Modifier.widthIn(max = 420.dp))
+    val pick = rememberAttachPicker()
+    Column(modifier.fillMaxWidth()) {
+        PendingAttachments()
+        Box(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+            GlowBar(state, status, partial, { BixbyEngine.send(it) }, Modifier.widthIn(max = 420.dp), onAttach = pick)
+        }
     }
 }
 

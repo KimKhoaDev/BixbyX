@@ -98,7 +98,7 @@ fun TopStepBar(visible: Boolean, onOpen: () -> Unit) {
         enter = slideInVertically(spring(dampingRatio = .7f, stiffness = 380f)) { -it } + fadeIn() + scaleIn(initialScale = .85f),
         exit = slideOutVertically(tween(280)) { -it } + fadeOut(tween(220)) + scaleOut(targetScale = .9f)) {
         Box(Modifier.padding(16.dp)) {
-            Row(Modifier.widthIn(max = 320.dp).height(50.dp).glowBar(true, c.surfaceContainer).clickable { onOpen() }.padding(start = 10.dp, end = 2.dp),
+            Row(Modifier.widthIn(max = 320.dp).height(50.dp).glowBar(state == BState.Thinking || state == BState.Working, c.surfaceContainer).clickable { onOpen() }.padding(start = 10.dp, end = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 BixbyOrb(state, 30.dp, hole = c.surfaceContainer)
                 Spacer(Modifier.width(10.dp))

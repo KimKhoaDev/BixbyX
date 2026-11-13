@@ -50,6 +50,9 @@ class Prefs(ctx: Context) {
         get() = sp.getString("stt_engine", "auto") ?: "auto"; set(v) = sp.edit().putString("stt_engine", v).apply()
     var autoDescribe: Boolean
         get() = sp.getBoolean("auto_describe", true); set(v) = sp.edit().putBoolean("auto_describe", v).apply()
+    /** 0 auto (when the screen has nothing to read, or in games), 1 always, 2 off */
+    var vision: Int
+        get() = sp.getInt("vision", 0); set(v) = sp.edit().putInt("vision", v).apply()
     var haptics: Boolean
         get() = sp.getBoolean("haptics", true); set(v) = sp.edit().putBoolean("haptics", v).apply()
     val useFishTts get() = fishKey.isNotBlank() && ttsEngine != "system"

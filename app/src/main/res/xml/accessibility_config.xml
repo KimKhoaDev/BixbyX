@@ -2,6 +2,6 @@
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagReportViewIds|flagRequestFilterKeyEvents"
-    android:canPerformGestures="true" android:canRequestFilterKeyEvents="true" android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true" android:canTakeScreenshot="true" android:canRequestFilterKeyEvents="true" android:canRetrieveWindowContent="true"
     android:notificationTimeout="100"
     android:description="@string/a11y_desc"/>

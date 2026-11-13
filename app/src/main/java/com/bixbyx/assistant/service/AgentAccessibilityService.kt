@@ -2,7 +2,12 @@ package com.bixbyx.assistant.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.graphics.Bitmap
 import android.graphics.Path
+import android.os.Build
+import android.view.Display
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import android.graphics.Rect
 import android.os.Bundle
 import android.view.KeyEvent
@@ -76,6 +81,32 @@ class AgentAccessibilityService : AccessibilityService() {
                     n.isClickable, n.isEditable, n.isScrollable, r.centerX(), r.centerY())
         }
         for (i in 0 until n.childCount) walk(n.getChild(i), out)
+    }
+
+    data class Stroke(val x1: Float, val y1: Float, val x2: Float, val y2: Float, val ms: Long)
+
+    /** Several touches at the same moment, e.g. hold a movement button while swiping to look around. */
+    fun multi(strokes: List<Stroke>): Boolean {
+        if (strokes.isEmpty()) return false
+        val b = GestureDescription.Builder()
+        strokes.take(4).forEach { st ->
+            val path = Path().apply { moveTo(st.x1, st.y1); if (st.x2 != st.x1 || st.y2 != st.y1) lineTo(st.x2, st.y2) }
+            b.addStroke(GestureDescription.StrokeDescription(path, 0, st.ms.coerceIn(50, 8000)))
+        }
+        return dispatchGesture(b.build(), null, null)
+    }
+
+    /** A picture of the screen, for models that can see. Android 11 or newer. */
+    suspend fun screenshot(): Bitmap? = suspendCancellableCoroutine { cont ->
+        if (Build.VERSION.SDK_INT < 30) { cont.resume(null); return@suspendCancellableCoroutine }
+        takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : AccessibilityService.TakeScreenshotCallback {
+            override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
+                val bmp = runCatching { Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false) }.getOrNull()
+                runCatching { result.hardwareBuffer.close() }
+                cont.resume(bmp)
+            }
+            override fun onFailure(errorCode: Int) { cont.resume(null) }
+        })
     }
 
     fun tapId(id: Int): Boolean { val e = last.firstOrNull { it.id == id } ?: return false; return tap(e.cx, e.cy) }

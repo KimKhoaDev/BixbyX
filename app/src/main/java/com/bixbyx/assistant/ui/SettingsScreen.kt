@@ -52,6 +52,7 @@ private val Palettes = ThemePaletteStyle.entries.map { it.name }
 private val Specs = ThemeColorSpec.entries.map { it.name }
 private val KeyNames = listOf("Default") + KeyColors.map { it.first }
 private val FishModels = listOf("s2.1-pro-free", "s2.1-pro", "s2-pro", "s1")
+private val VisionModes = listOf("Auto", "Always", "Off")
 private val Engines = listOf("Auto", "Fish Audio", "Phone")
 private val EngineKeys = listOf("auto", "fish", "system")
 
@@ -120,6 +121,7 @@ fun SettingsScreen(padding: PaddingValues) {
     var gesture by remember { mutableStateOf(prefs.gestureWake) }
     var describe by remember { mutableStateOf(prefs.autoDescribe) }
     var haptics by remember { mutableStateOf(prefs.haptics) }
+    var vision by remember { mutableIntStateOf(prefs.vision) }
     var vol by remember { mutableStateOf(prefs.volumeCombo) }
 
     fun saveAi() { prefs.provider = provider; prefs.setKey(provider, apiKey); prefs.setModel(provider, model); prefs.customUrl = url }
@@ -259,6 +261,8 @@ fun SettingsScreen(padding: PaddingValues) {
         item { Stagger(5) { Column {
             SmallTitle("Behavior")
             Group {
+                OverlayDropdownPreference(VisionModes, vision, "Screenshots for the model", onSelectedIndexChange = { vision = it; prefs.vision = it })
+                Text("Games, and apps with no readable screen, need a model that can see images, such as Claude, GPT-4o or Gemini.", Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1)
                 ThemedSwitch(orb, { orb = it; prefs.orbEnabled = it; if (it) OverlayService.start(ctx) else OverlayService.stop(ctx) }, "Floating icon", summary = "Show Bixby over other apps")
                 ThemedSwitch(gesture, { gesture = it; prefs.gestureWake = it; if (orb) { OverlayService.stop(ctx); OverlayService.start(ctx) } },
                     "Gesture wake-up", summary = "Raise the phone to your mouth. Experimental, needs the floating icon.")

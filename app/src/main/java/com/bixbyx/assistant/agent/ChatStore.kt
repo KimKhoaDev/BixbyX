@@ -18,11 +18,13 @@ class ChatStore(ctx: Context) {
                 val m = ms.getJSONObject(i)
                 val cs = m.optJSONArray("c")
                 val st = m.optJSONArray("s")
+                val at = m.optJSONArray("a")
                 Msg(m.getString("t"), m.getBoolean("u"), m.getLong("ts"),
                     if (cs == null) emptyList() else (0 until cs.length()).map { k -> val o2 = cs.getJSONObject(k); Ctl(o2.getString("k"), o2.getInt("v")) },
                     if (st == null) emptyList() else (0 until st.length()).map { k ->
                         val o3 = st.getJSONObject(k)
-                        Step(k + 1, StepKind.entries[o3.getInt("k")], o3.getString("t"), StepState.entries[o3.getInt("s")], o3.optString("i"), o3.optString("o")) }) })
+                        Step(k + 1, StepKind.entries[o3.getInt("k")], o3.getString("t"), StepState.entries[o3.getInt("s")], o3.optString("i"), o3.optString("o")) },
+                    if (at == null) emptyList() else (0 until at.length()).map { k -> val o4 = at.getJSONObject(k); AttachmentRef(o4.getString("n"), AttKind.entries[o4.getInt("k")]) }) })
         }
     }.getOrDefault(emptyList())
 
@@ -36,7 +38,8 @@ class ChatStore(ctx: Context) {
                     val st = JSONArray()
                     m.steps.takeLast(40).forEach { s -> st.put(JSONObject().put("k", s.kind.ordinal).put("t", s.text).put("s", s.state.ordinal)
                         .put("i", s.input.take(300)).put("o", s.output.take(800))) }
-                    ms.put(JSONObject().put("t", m.text).put("u", m.user).put("ts", m.ts).put("c", cs).put("s", st))
+                    val at = JSONArray(); m.attachments.forEach { at.put(JSONObject().put("n", it.name).put("k", it.kind.ordinal)) }
+                    ms.put(JSONObject().put("t", m.text).put("u", m.user).put("ts", m.ts).put("c", cs).put("s", st).put("a", at))
                 }
                 a.put(JSONObject().put("id", c.id).put("t", c.title).put("u", c.updated).put("m", ms))
             }

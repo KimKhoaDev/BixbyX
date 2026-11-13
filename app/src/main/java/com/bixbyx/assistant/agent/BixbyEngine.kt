@@ -10,7 +10,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.SocketTimeoutException
 
-data class Msg(val text: String, val user: Boolean, val ts: Long = System.currentTimeMillis(), val controls: List<Ctl> = emptyList(), val steps: List<Step> = emptyList())
+data class Msg(val text: String, val user: Boolean, val ts: Long = System.currentTimeMillis(), val controls: List<Ctl> = emptyList(), val steps: List<Step> = emptyList(), val attachments: List<AttachmentRef> = emptyList())
 enum class BState { Idle, Listening, Thinking, Working }
 enum class StepState { Running, Done, Failed }
 enum class StepKind { Thought, Ran }
@@ -40,6 +40,8 @@ object BixbyEngine {
     val voiceError = MutableStateFlow("")
     /** Text picked in another app ("Ask Bixby" in the text menu, or shared to Bixby). */
     val pendingText = MutableStateFlow<String?>(null)
+    /** Files picked for the next message. */
+    val attachments = MutableStateFlow<List<Attachment>>(emptyList())
     val look = MutableStateFlow(Look(0, 0, 0, 0, true, 0, 0, true))
 
     fun init(ctx: Context) {
@@ -115,14 +117,16 @@ object BixbyEngine {
         else -> e.message ?: "Something went wrong"
     }
 
+    private var stepN = 0
+
     private fun ui() = object : AgentUi {
         override fun thinking(text: String) { status.value = text; state.value = BState.Thinking }
         override fun thought(text: String) {
-            steps.value = steps.value + Step(steps.value.size + 1, StepKind.Thought, text, StepState.Done)
+            steps.value = (steps.value + Step(++stepN, StepKind.Thought, text, StepState.Done)).takeLast(40)
         }
         override fun begin(text: String, input: String): Int {
-            val n = steps.value.size + 1
-            steps.value = steps.value + Step(n, StepKind.Ran, text, StepState.Running, input)
+            val n = ++stepN
+            steps.value = (steps.value + Step(n, StepKind.Ran, text, StepState.Running, input)).takeLast(40)
             status.value = text; state.value = BState.Working
             return n
         }
@@ -133,14 +137,18 @@ object BixbyEngine {
 
     // ---- actions ----
     fun send(text: String) {
-        if (text.isBlank()) return
-        add(Msg(text, true))
+        val att = attachments.value
+        if (text.isBlank() && att.isEmpty()) return
+        attachments.value = emptyList()
+        val body = text.ifBlank { if (att.size > 1) "Look at the attached files." else "Look at the attached file." }
+        add(Msg(body, true, attachments = att.map { AttachmentRef(it.name, it.kind) }))
+        stepN = 0
         steps.value = emptyList()
         job?.cancel()
         job = scope.launch {
             state.value = BState.Thinking
             try {
-                val r = AgentLoop(app, prefs).run(text, messages.value, ui())
+                val r = AgentLoop(app, prefs).run(body, messages.value, ui(), att)
                 add(Msg(r.text, false, controls = r.controls, steps = steps.value)); steps.value = emptyList()
                 if (prefs.haptics) Haptics.click(app)
                 if (prefs.speak) voice.speak(r.text, interrupt = true)
@@ -177,6 +185,17 @@ object BixbyEngine {
     }
 
     private fun resetListen() { partial.value = ""; level.value = 0f; state.value = BState.Idle }
+
+    fun addAttachment(uri: android.net.Uri) {
+        scope.launch {
+            try {
+                val a = withContext(Dispatchers.IO) { Attachments.load(app, uri) }
+                attachments.value = attachments.value + a
+            } catch (e: Exception) { notify("Could not attach: ${e.message}") }
+        }
+    }
+
+    fun removeAttachment(id: String) { attachments.value = attachments.value.filter { it.id != id } }
 
     fun askAbout(instruction: String) {
         val t = pendingText.value ?: return

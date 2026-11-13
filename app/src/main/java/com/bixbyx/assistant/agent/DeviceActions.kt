@@ -25,6 +25,11 @@ class Act(val j: JSONObject) {
     val old = pick("old", "old_str", "old_text", "find")
     val new = if (j.has("new")) j.optString("new") else if (j.has("new_str")) j.optString("new_str") else j.optString("new_text")
     val append = j.optBoolean("append", false)
+    val x1 = j.optInt("x1", -1)
+    val y1 = j.optInt("y1", -1)
+    val x2 = j.optInt("x2", -1)
+    val y2 = j.optInt("y2", -1)
+    val ms = j.optInt("ms", 500)
     val x = j.optInt("x", -1)
     val y = j.optInt("y", -1)
     val value = j.optInt("value", -1)
@@ -40,6 +45,30 @@ data class Ctl(val type: String, val value: Int) {
         "dark" -> "Dark mode"; "volume" -> "Media volume"; "brightness" -> "Brightness"; else -> type
     }
     val isSlider: Boolean get() = type == "volume" || type == "brightness"
+}
+
+/** Multiplies every screen coordinate, to turn screenshot pixels back into real pixels. */
+fun Act.scaled(f: Float): Act {
+    if (f == 1f) return this
+    val o = JSONObject(j.toString())
+    for (k in listOf("x", "y", "x1", "y1", "x2", "y2")) if (o.has(k)) o.put(k, (o.optDouble(k) * f).toInt())
+    o.optJSONArray("strokes")?.let { arr ->
+        for (i in 0 until arr.length()) {
+            val s = arr.optJSONObject(i) ?: continue
+            for (k in listOf("x", "y", "x1", "y1", "x2", "y2")) if (s.has(k)) s.put(k, (s.optDouble(k) * f).toInt())
+        }
+    }
+    return Act(o)
+}
+
+fun Act.strokes(): List<AgentAccessibilityService.Stroke> {
+    val arr = j.optJSONArray("strokes") ?: return emptyList()
+    return (0 until arr.length()).mapNotNull { i ->
+        val s = arr.optJSONObject(i) ?: return@mapNotNull null
+        val x1 = s.optDouble("x1", s.optDouble("x", -1.0)).toFloat()
+        val y1 = s.optDouble("y1", s.optDouble("y", -1.0)).toFloat()
+        AgentAccessibilityService.Stroke(x1, y1, s.optDouble("x2", x1.toDouble()).toFloat(), s.optDouble("y2", y1.toDouble()).toFloat(), s.optLong("ms", 500))
+    }
 }
 
 object DeviceActions {
@@ -58,6 +87,9 @@ object DeviceActions {
             "tap" -> needA11y { it.tapId(a.id) }
             "tap_xy" -> needA11y { it.tap(a.x, a.y) }
             "long_press" -> needA11y { it.tap(a.x, a.y, 700) }
+            "hold" -> needA11y { it.tap(a.x, a.y, a.ms.toLong().coerceIn(50, 8000)) }
+            "swipe" -> needA11y { it.swipe(a.x1, a.y1, a.x2, a.y2, a.ms.toLong().coerceIn(50, 8000)) }
+            "gesture" -> needA11y { it.multi(a.strokes()) }
             "type" -> needA11y { it.type(a.text, a.j.optBoolean("submit", false)) }
             "scroll" -> needA11y { it.scroll(a.text.ifBlank { "down" }) }
             "back", "home", "recents", "notifications", "quick_settings", "lock", "screenshot" -> needA11y { it.global(a.action) }
