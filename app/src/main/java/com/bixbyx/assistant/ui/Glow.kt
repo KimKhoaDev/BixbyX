@@ -1,6 +1,9 @@
 package com.bixbyx.assistant.ui
 
 import android.graphics.BlurMaskFilter
+import android.graphics.LinearGradient
+import android.graphics.Paint as FrameworkPaint
+import android.graphics.Shader
 import androidx.compose.animation.core.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -12,11 +15,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.LinearGradientShader
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.PaintingStyle
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asFrameworkPaint
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -38,15 +36,26 @@ private fun DrawScope.softGlow(k: Float) {
     val w = size.width
     val h = size.height
     drawIntoCanvas { canvas ->
-        val p = Paint().apply {
+        val p = FrameworkPaint().apply {
             isAntiAlias = true
-            style = PaintingStyle.Stroke
             strokeWidth = 3.dp.toPx()
-            alpha = k
-            shader = LinearGradientShader(Offset.Zero, Offset(w, 0f), EdgeColors, null, TileMode.Clamp)
+            alpha = (k * 255).toInt()
+            shader = LinearGradient(
+                0f, 0f, w, 0f,
+                EdgeColors.map { c ->
+                    android.graphics.Color.argb(
+                        (c.alpha * 255).toInt(),
+                        (c.red * 255).toInt(),
+                        (c.green * 255).toInt(),
+                        (c.blue * 255).toInt()
+                    )
+                }.toTypedArray(),
+                null,
+                Shader.TileMode.CLAMP
+            )
         }
-        p.asFrameworkPaint().maskFilter = BlurMaskFilter(9.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
-        canvas.drawRoundRect(0f, 0f, w, h, h / 2, h / 2, p)
+        p.maskFilter = BlurMaskFilter(9.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
+        canvas.nativeCanvas.drawRoundRect(0f, 0f, w, h, h / 2, h / 2, p)
     }
 }
 
