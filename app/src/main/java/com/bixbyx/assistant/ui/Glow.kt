@@ -1,9 +1,5 @@
 package com.bixbyx.assistant.ui
 
-import android.graphics.BlurMaskFilter
-import android.graphics.LinearGradient
-import android.graphics.Paint as FrameworkPaint
-import android.graphics.Shader
 import androidx.compose.animation.core.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -15,9 +11,12 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -31,32 +30,14 @@ private fun rememberBreath(active: Boolean): State<Float>? {
     return t.animateFloat(.45f, .95f, infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "k")
 }
 
-/** One smooth blurred glow along the edge of the pill. */
+/** One smooth glow along the edge of the pill. */
 private fun DrawScope.softGlow(k: Float) {
-    val w = size.width
-    val h = size.height
-    drawIntoCanvas { canvas ->
-        val p = FrameworkPaint().apply {
-            isAntiAlias = true
-            strokeWidth = 3.dp.toPx()
-            alpha = (k * 255).toInt()
-            shader = LinearGradient(
-                0f, 0f, w, 0f,
-                EdgeColors.map { c ->
-                    android.graphics.Color.argb(
-                        (c.alpha * 255).toInt(),
-                        (c.red * 255).toInt(),
-                        (c.green * 255).toInt(),
-                        (c.blue * 255).toInt()
-                    )
-                }.toTypedArray(),
-                null,
-                Shader.TileMode.CLAMP
-            )
-        }
-        p.maskFilter = BlurMaskFilter(9.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
-        canvas.nativeCanvas.drawRoundRect(0f, 0f, w, h, h / 2, h / 2, p)
-    }
+    drawRoundRect(
+        Brush.linearGradient(colors = EdgeColors, start = Offset.Zero, end = Offset(size.width, 0f), tileMode = TileMode.Clamp),
+        cornerRadius = CornerRadius(size.height / 2),
+        alpha = k,
+        style = Stroke(3.dp.toPx())
+    )
 }
 
 private fun DrawScope.edge() {
