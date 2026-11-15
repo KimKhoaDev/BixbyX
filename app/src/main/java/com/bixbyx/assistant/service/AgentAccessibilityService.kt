@@ -66,7 +66,7 @@ class AgentAccessibilityService : AccessibilityService() {
         last = out
         return out.joinToString("\n") {
             val flags = listOfNotNull(if (it.click) "tap" else null, if (it.edit) "input" else null, if (it.scroll) "scroll" else null).joinToString(",")
-            "[${it.id}] ${it.cls} \"${it.label.take(60)}\" ($flags) @${it.cx},${it.cy}"
+            "[${it.id}] " + (if (it.label.isBlank()) it.cls else "\"${it.label.take(60)}\"") + " ($flags)"
         }.ifBlank { "(empty screen)" }
     }
 

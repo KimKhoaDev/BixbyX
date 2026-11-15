@@ -56,7 +56,7 @@ val LocalGlass = staticCompositionLocalOf<Backdrop?> { null }
 
 /** A Miuix page: collapsing top bar with progressive blur, overscroll, and room for the tab bar. */
 @Composable
-fun Page(
+internal fun MiuixPage(
     title: String,
     padding: PaddingValues,
     onBack: (() -> Unit)? = null,
@@ -74,7 +74,7 @@ fun Page(
     val glass = rememberGlassBackdrop { drawRect(c.background); drawContent() }
     val wall = if (look.design == 1) rememberGlassBackdrop() else null
     val nav: @Composable () -> Unit = { if (onBack != null) IconButton(onClick = onBack) { Icon(MiuixIcons.Back, "Back") } }
-    CompositionLocalProvider(LocalGlass provides glass, LocalWall provides wall) {
+    CompositionLocalProvider(LocalGlass provides null, LocalWall provides null) {
         Scaffold(
             topBar = {
                 BlurredBar(blur, look.progressive, sb) {

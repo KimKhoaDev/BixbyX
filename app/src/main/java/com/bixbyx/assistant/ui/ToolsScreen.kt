@@ -49,29 +49,29 @@ private fun ToolsHome(padding: PaddingValues, open: (Tool) -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     Page("Tools", padding) {
         item { Stagger(0) { Column {
-            SmallTitle("Tools")
+            Section("Tools")
             Group {
-                ArrowPreference("Diagnostics", summary = "Battery, storage and memory", onClick = { open(Tool.Diagnostics) })
-                ArrowPreference("Interpreter", summary = "Translate speech and text", onClick = { open(Tool.Interpreter) })
-                ArrowPreference("Skills", summary = "Instructions Bixby can load", onClick = { open(Tool.Skills) })
+                Pref("Diagnostics", summary = "Battery, storage and memory", onClick = { open(Tool.Diagnostics) })
+                Pref("Interpreter", summary = "Translate speech and text", onClick = { open(Tool.Interpreter) })
+                Pref("Skills", summary = "Instructions Bixby can load", onClick = { open(Tool.Skills) })
             }
         } } }
         item { Stagger(1) { Column {
-            SmallTitle("Actions")
+            Section("Actions")
             Group {
-                ArrowPreference("Read the screen aloud", summary = "Describe what is open", onClick = { BixbyEngine.describeScreen() })
-                ArrowPreference("Test voice", onClick = { BixbyEngine.testVoice() })
+                Pref("Read the screen aloud", summary = "Describe what is open", onClick = { BixbyEngine.describeScreen() })
+                Pref("Test voice", onClick = { BixbyEngine.testVoice() })
             }
         } } }
         item { Stagger(2) { Column {
-            SmallTitle("Data")
-            Group { ArrowPreference("Clear all chats", summary = "Deletes every conversation", onClick = { confirm = true }) }
+            Section("Data")
+            Group { Pref("Clear all chats", summary = "Deletes every conversation", onClick = { confirm = true }) }
         } } }
     }
-    OverlayDialog(show = confirm, title = "Clear all chats?", summary = "Every conversation will be deleted.", onDismissRequest = { confirm = false }) {
+    AppDialog(show = confirm, title = "Clear all chats?", summary = "Every conversation will be deleted.", onDismissRequest = { confirm = false }) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton("Cancel", { confirm = false }, Modifier.weight(1f))
-            TextButton("Delete", { BixbyEngine.clearAllChats(); confirm = false }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+            TextAction("Cancel", { confirm = false }, Modifier.weight(1f))
+            TextAction("Delete", { BixbyEngine.clearAllChats(); confirm = false }, Modifier.weight(1f), primary = true)
         }
     }
 }
@@ -131,10 +131,10 @@ private fun InterpreterScreen(padding: PaddingValues, onBack: () -> Unit) {
     fun go() { if (input.isBlank() || busy) return; busy = true; scope.launch {
         out = runCatching { BixbyEngine.translate(input, langs[lang]) }.getOrElse { "Error: ${it.message}" }; busy = false } }
     Page("Interpreter", padding, onBack) {
-        item { Group { OverlayDropdownPreference(langs, lang, "Translate to", onSelectedIndexChange = { lang = it; prefs.targetLang = langs[it] }) } }
+        item { Group { PrefDropdown(langs, lang, "Translate to", onSelectedIndexChange = { lang = it; prefs.targetLang = langs[it] }) } }
         item {
             Group {
-                TextField(input, { input = it }, Modifier.fillMaxWidth().padding(12.dp), label = "Text or speech", minLines = 3)
+                Input(input, { input = it }, Modifier.fillMaxWidth().padding(12.dp), label = "Text or speech", minLines = 3)
                 Row(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton({ BixbyEngine.listenInto { input = it; go() } }) { Icon(MiuixIcons.Mic, "Speak", tint = MiuixTheme.colorScheme.primary) }
                     ThemedButton(if (busy) "Translating" else "Translate", ::go, Modifier.weight(1f), primary = true)
@@ -144,7 +144,7 @@ private fun InterpreterScreen(padding: PaddingValues, onBack: () -> Unit) {
         if (out.isNotEmpty()) item {
             Group {
                 Text(out, Modifier.padding(16.dp), style = MiuixTheme.textStyles.title4)
-                TextButton("Play", { BixbyEngine.speak(out) }, Modifier.padding(start = 8.dp, bottom = 8.dp))
+                TextAction("Play", { BixbyEngine.speak(out) }, Modifier.padding(start = 8.dp, bottom = 8.dp))
             }
         }
     }
@@ -166,8 +166,8 @@ private fun SkillsScreen(padding: PaddingValues, onBack: () -> Unit) {
             }
             item {
                 Group {
-                    if (names.isEmpty()) BasicComponent(title = "No skills", summary = "Tap + to add one")
-                    names.forEach { n -> ArrowPreference(n, summary = Skills.description(n), onClick = { editing = n }) }
+                    if (names.isEmpty()) Pref(title = "No skills", summary = "Tap + to add one")
+                    names.forEach { n -> Pref(n, summary = Skills.description(n), onClick = { editing = n }) }
                 }
             }
         }
@@ -177,14 +177,14 @@ private fun SkillsScreen(padding: PaddingValues, onBack: () -> Unit) {
         Page(if (e.isEmpty()) "New skill" else e, padding, { editing = null }) {
             item {
                 Group {
-                    TextField(name, { name = it }, Modifier.fillMaxWidth().padding(12.dp), label = "Name", singleLine = true, enabled = e.isEmpty())
-                    TextField(body, { body = it }, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    Input(name, { name = it }, Modifier.fillMaxWidth().padding(12.dp), label = "Name", singleLine = true, enabled = e.isEmpty())
+                    Input(body, { body = it }, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                         label = "First line: what it does. Then the steps.", minLines = 8)
                 }
             }
             item {
                 Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (e.isNotEmpty()) TextButton("Delete", { Skills.delete(e); tick++; editing = null }, Modifier.weight(1f))
+                    if (e.isNotEmpty()) TextAction("Delete", { Skills.delete(e); tick++; editing = null }, Modifier.weight(1f))
                     ThemedButton("Save", { if (name.isNotBlank() && body.isNotBlank()) { Skills.save(name, body); tick++; editing = null } }, Modifier.weight(1f), primary = true)
                 }
             }

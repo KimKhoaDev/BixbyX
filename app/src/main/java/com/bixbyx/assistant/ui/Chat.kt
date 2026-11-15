@@ -32,6 +32,8 @@ import com.bixbyx.assistant.agent.Msg
 import com.bixbyx.assistant.agent.Tools
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -61,16 +63,17 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun runQuick(s: String) { if (s.startsWith("What's on")) BixbyEngine.describeScreen() else BixbyEngine.send(s) }
 
 @Composable
-private fun ControlCard(ctl: Ctl) {
+private fun ControlPanel(ctl: Ctl) {
     val c = MiuixTheme.colorScheme
+    val design = LocalDesign.current
     var v by remember(ctl) { mutableIntStateOf(ctl.value) }
     val surface = c.surfaceContainer
     val bd = rememberGlassBackdrop { drawRect(surface); drawContent() }
     // apply a moment after the last change, so dragging a slider does not spam the system
     LaunchedEffect(v) { if (v != ctl.value) { kotlinx.coroutines.delay(250); BixbyEngine.applyControl(ctl.type, v) } }
-    Card(Modifier.padding(horizontal = 12.dp).padding(top = 8.dp)) {
+    Panel(Modifier.padding(horizontal = 12.dp).padding(top = 8.dp)) {
         Box {
-            Box(Modifier.matchParentSize().glassLayer(bd))
+            if (design == Design.Glass) Box(Modifier.matchParentSize().glassLayer(bd))
             if (ctl.isSlider) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Row(Modifier.fillMaxWidth()) {
@@ -78,16 +81,27 @@ private fun ControlCard(ctl: Ctl) {
                         Text("$v%", color = c.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)
                     }
                     Spacer(Modifier.height(10.dp))
-                    LiquidSlider({ v.toFloat() }, { v = it.toInt() }, 0f..100f, 1f, bd)
+                    if (design == Design.Glass) LiquidSlider({ v.toFloat() }, { v = it.toInt() }, 0f..100f, 1f, bd)
+                    else Slider(value = v / 100f, onValueChange = { v = (it * 100).toInt() })
                 }
             } else {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(ctl.title, Modifier.weight(1f), style = MiuixTheme.textStyles.body1)
-                    LiquidToggle({ v == 1 }, { v = if (it) 1 else 0 }, bd)
+                    when (design) {
+                        Design.Glass -> LiquidToggle({ v == 1 }, { v = if (it) 1 else 0 }, bd)
+                        Design.One -> OneSwitch(v == 1) { v = if (it) 1 else 0 }
+                        else -> Switch(v == 1, { v = if (it) 1 else 0 })
+                    }
                 }
             }
         }
     }
+}
+
+/** The reply while it is still being written. */
+@Composable
+fun DraftBubble(text: String) {
+    Panel(Modifier.padding(horizontal = 12.dp)) { Markdown(text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) }
 }
 
 /** Opens the file picker. Null in overlay windows, which cannot launch one. */
@@ -138,7 +152,7 @@ private fun MessageView(m: Msg, last: Boolean) {
         Column {
             ToolSteps(m.steps, running = false, defaultOpen = false)
             Panel(Modifier.padding(horizontal = 12.dp)) { Markdown(m.text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) }
-            m.controls.forEach { ControlCard(it) }
+            m.controls.forEach { ControlPanel(it) }
             Row(Modifier.padding(start = 12.dp, top = 2.dp)) {
                 IconButton({ Tools.clipboardSet(ctx, m.text); BixbyEngine.notify("Copied") }) { Icon(MiuixIcons.Copy, "Copy", tint = c.onSurfaceVariantActions) }
                 IconButton({ Tools.share(ctx, m.text) }) { Icon(MiuixIcons.Share, "Share", tint = c.onSurfaceVariantActions) }
@@ -260,7 +274,7 @@ fun SelectedText() {
     val text by BixbyEngine.pendingText.collectAsState()
     val t = text ?: return
     val actions = listOf("Summarize", "Explain", "Translate to English", "Reply to this", "Fix grammar", "List the tasks")
-    Card(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
+    Panel(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text(t.take(400), maxLines = 5, color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.body2)
             Spacer(Modifier.height(10.dp))
@@ -275,8 +289,9 @@ fun BixbySheet(visible: Boolean, onDismiss: () -> Unit) {
     val msgs by BixbyEngine.messages.collectAsState()
     val state by BixbyEngine.state.collectAsState()
     val steps by BixbyEngine.steps.collectAsState()
+    val draft by BixbyEngine.draft.collectAsState()
     val list = rememberLazyListState()
-    LaunchedEffect(msgs.size, steps.size) { val n = list.layoutInfo.totalItemsCount; if (n > 0) list.animateScrollToItem(n - 1) }
+    LaunchedEffect(msgs.size, steps.size, draft.length / 60) { val n = list.layoutInfo.totalItemsCount; if (n > 0) list.animateScrollToItem(n - 1) }
     val ts = remember { MutableTransitionState(false) }
     ts.targetState = visible
     val scrim by animateFloatAsState(if (visible) 1f else 0f, tween(300), label = "scrim")
@@ -291,6 +306,7 @@ fun BixbySheet(visible: Boolean, onDismiss: () -> Unit) {
                 else LazyColumn(Modifier.heightIn(max = 340.dp), state = list) {
                     messageItems(msgs.takeLast(4))
                     if (steps.isNotEmpty()) item { ToolSteps(steps, running = state != BState.Idle, defaultOpen = true) }
+                    if (draft.isNotBlank()) item { DraftBubble(draft) }
                 }
                 InputBar()
             }

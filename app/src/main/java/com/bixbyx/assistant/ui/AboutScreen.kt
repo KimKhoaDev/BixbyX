@@ -50,7 +50,7 @@ fun AboutScreen(padding: PaddingValues) {
             }
         }
         item { Stagger(0) { Group {
-            ArrowPreference("Software update", summary = when (val u = upd) {
+            Pref("Software update", summary = when (val u = upd) {
                 Upd.Idle -> "Check for a new version"; Upd.Checking -> "Checking"; Upd.Latest -> "You have the latest version"
                 Upd.Failed -> "Could not reach GitHub"; is Upd.Available -> "${u.r.tag} is available. Tap to download." },
                 onClick = {
@@ -62,19 +62,19 @@ fun AboutScreen(padding: PaddingValues) {
                 })
         } } }
         item { Stagger(1) { Column {
-            SmallTitle("Project")
+            Section("Project")
             Group {
-                ArrowPreference("Source code", summary = "github.com/${Updater.REPO}", onClick = { open(ctx, "https://github.com/${Updater.REPO}") })
-                ArrowPreference("Release notes", onClick = { open(ctx, "https://github.com/${Updater.REPO}/releases") })
+                Pref("Source code", summary = "github.com/${Updater.REPO}", onClick = { open(ctx, "https://github.com/${Updater.REPO}") })
+                Pref("Release notes", onClick = { open(ctx, "https://github.com/${Updater.REPO}/releases") })
             }
         } } }
         item { Stagger(2) { Column {
-            SmallTitle("Credits")
+            Section("Credits")
             Group {
-                BasicComponent(title = "Screen control", summary = "Based on private-agent by orailnoor")
-                BasicComponent(title = "Interface", summary = "Miuix")
-                BasicComponent(title = "Voice", summary = "Fish Audio")
-                BasicComponent(summary = "Independent project. Not affiliated with Samsung, Xiaomi or Fish Audio.")
+                Pref(title = "Screen control", summary = "Based on private-agent by orailnoor")
+                Pref(title = "Interface", summary = "Miuix")
+                Pref(title = "Voice", summary = "Fish Audio")
+                Pref(summary = "Independent project. Not affiliated with Samsung, Xiaomi or Fish Audio.")
             }
         } } }
     }

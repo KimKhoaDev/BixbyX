@@ -15,6 +15,7 @@ import org.json.JSONObject
 /** Reports every step so the UI can show them as they happen. */
 interface AgentUi {
     fun thinking(text: String)
+    fun token(text: String)
     fun thought(text: String)
     fun begin(text: String, input: String): Int
     fun end(n: Int, ok: Boolean, output: String)
@@ -33,11 +34,12 @@ Touch (games, and apps whose screen cannot be read): hold{x,y,ms} swipe{x1,y1,x2
 System: run_command{text} (adb-level when Shizuku is on: svc wifi enable|disable, svc data enable|disable, cmd bluetooth_manager enable|disable, cmd uimode night yes|no, am force-stop <pkg>, input keyevent <n>)
 Files (workspace, or /storage/emulated/0): read_file{path} write_file{path,text,append} edit_file{path,old,new} list_dir{path} search_files{path,text} delete_file{path} (delete: workspace only)
 Web and data: web_search{text} web_fetch{text:url} clipboard_get clipboard_set{text} share{text} memory_add{text} use_skill{name} read_notifications clear_notifications calendar{value:days}
-Finish: done{say}
+Several actions at once: {"thought":"short","actions":[{...},{...}]}. Do this when you are sure of each result (open_app then type, scroll then scroll). Use tap{id} only as the last action of a batch, because ids change after a tap.
+Finish: just write the answer for the user as plain text, with no JSON. Plain text always ends the task.
 Rules:
 - Prefer direct actions over tapping. Tap by the [id] in the screen list.
-- After each action you get the result and the new screen. Finish with done as soon as the task is complete.
-- For questions and chat, answer straight away with done. Keep "say" short and plain, in the user's language.
+- After each action you get the result and the new screen. When the task is complete, reply with the plain-text answer.
+- For questions and chat, answer straight away in plain text. Keep it short, in the user's language. Never describe an action instead of doing it.
 - edit_file needs 'old' to match exactly once. Read a file before editing it.
 - If a skill fits the task, call use_skill once, then carry out its instructions with the other tools. Never repeat the same action twice in a row.
 - Never send money, post publicly or delete data unless the user clearly asked.
@@ -62,6 +64,24 @@ ${Skills.matching(task).joinToString("\n") { (n, body) -> "\nSkill '$n' (already
         return Triple(Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP), w, h)
     }
 
+    private val uiActions = setOf("open_app", "open_url", "tap", "tap_xy", "long_press", "type", "scroll", "back", "home", "recents", "notifications",
+        "quick_settings", "lock", "hold", "swipe", "gesture", "open_settings", "call", "alarm", "timer")
+
+    /** Waits until the screen stops changing, instead of a fixed pause. */
+    private suspend fun settle(minMs: Long, maxMs: Long) {
+        val svc = AgentAccessibilityService.instance
+        if (svc == null) { delay(minMs); return }
+        var prev = svc.dump().hashCode()
+        var t = minMs
+        delay(minMs)
+        while (t < maxMs) {
+            val h = svc.dump().hashCode()
+            if (h == prev) return
+            prev = h
+            delay(120); t += 120
+        }
+    }
+
     suspend fun run(task: String, history: List<Msg>, ui: AgentUi, attachments: List<Attachment> = emptyList()): AgentResult {
         val convo = history.dropLast(1).takeLast(6).joinToString("\n") { (if (it.user) "User: " else "Bixby: ") + it.text.take(300) }
         val trail = ArrayList<Entry>()
@@ -76,7 +96,7 @@ ${Skills.matching(task).joinToString("\n") { (n, body) -> "\nSkill '$n' (already
         var lastSig = ""
         var repeats = 0
         val maxSteps = if (game) 200 else 25
-        for (step in 0 until maxSteps) {
+        loop@ for (step in 0 until maxSteps) {
             val svc = AgentAccessibilityService.instance
             ui.thinking(if (step == 0) "Reading the screen" else "Thinking")
             val pkg = svc?.currentPackage().orEmpty()
@@ -96,52 +116,63 @@ ${Skills.matching(task).joinToString("\n") { (n, body) -> "\nSkill '$n' (already
                     shotInfo = "A screenshot of the phone is attached, ${enc.second} x ${enc.third} pixels. Give tap_xy, hold, swipe and gesture coordinates in pixels of that image."
                 }
             }
-            val screen = if (svc != null) "Foreground app: $pkg\n" + dump.take(if (shot != null) 1500 else 4500) else "(screen control is off)"
-            val steps = trail.takeLast(8).mapIndexed { i, e ->
-                val last = i == trail.takeLast(8).lastIndex
-                "${e.head} -> ${e.result.take(if (last) 3500 else 200)}"
-            }.joinToString("\n").ifBlank { "(none)" }
+            val screen = if (svc != null) "Foreground app: $pkg\n" + dump.take(if (shot != null) 1500 else 3500) else "(screen control is off)"
+            val recent = trail.takeLast(8)
+            val steps = recent.mapIndexed { i, e -> "${e.head} -> ${e.result.take(if (i == recent.lastIndex) 3500 else 200)}" }.joinToString("\n").ifBlank { "(none)" }
             val prompt = buildString {
                 if (convo.isNotBlank()) append("Recent conversation:\n$convo\n\n")
                 if (files.isNotBlank()) append("Attached by the user:\n$files\n${if (attached.isNotEmpty()) "The attached images are sent with this message${if (shot != null) ", after the screenshot" else ""}.\n" else ""}\n")
-                append("TASK: $task\n\nSteps so far:\n$steps\n\nCurrent screen:\n$screen\n$shotInfo\n\nNext JSON action?")
+                append("TASK: $task\n\nSteps so far:\n$steps\n\nCurrent screen:\n$screen\n$shotInfo\n\nNext action, or the plain-text answer if the task is finished?")
             }
-            val raw = LlmClient.chat(prefs, listOf("system" to sys, "user" to prompt), imageB64 = shot, extraImages = attached) { ui.thinking(it) }
+            val raw = LlmClient.chat(prefs, listOf("system" to sys, "user" to prompt), imageB64 = shot, extraImages = attached,
+                onToken = { ui.token(it) }) { ui.thinking(it) }
             val json = extractJson(raw)
             if (json == null) {
-                if (++parseFails > 2) return AgentResult(raw.take(400).ifBlank { "I couldn't understand the reply." }, controls.values.toList())
+                // no JSON at all: the model answered in plain text, which ends the task
+                if (!raw.contains("\"action\"")) return AgentResult(raw.trim().ifBlank { "Done." }, controls.values.toList())
+                if (++parseFails > 2) return AgentResult(raw.take(400), controls.values.toList())
                 trail += Entry("(invalid reply)", "Send exactly one JSON object"); continue
             }
-            val a = Act(json).scaled(scale)
-            val sig = a.action + a.text + a.path + a.name + a.id + a.old
-            repeats = if (sig == lastSig) repeats + 1 else 0
-            lastSig = sig
-            if (!game && a.action != "done" && repeats >= 1) {
-                if (repeats >= 3) return AgentResult("I got stuck repeating the same step.", controls.values.toList())
-                trail += Entry("${step + 1}. ${a.action}", "You already did this. Do the next step of the task or finish with done.")
-                continue
-            }
-            if (a.action == "done") return AgentResult(a.say.ifBlank { "Done." }, controls.values.toList())
-            if (a.thought.isNotBlank()) ui.thought(a.thought)
-            val n = ui.begin(describe(a, svc), inputOf(a))
-            val res = withContext(Dispatchers.IO) { DeviceActions.execute(ctx, a) }
-            val ok = !(res.startsWith("Blocked") || res.startsWith("Failed") || res.startsWith("Shizuku") || res.contains("is off") || res.startsWith("Unknown")
-                || res.startsWith("Path not allowed") || res.startsWith("Missing") || res.startsWith("No installed"))
-            ui.end(n, ok, res.take(1500))
-            if (ok) DeviceActions.controlFor(a)?.let { controls[it.type] = it }
-            trail += Entry("${step + 1}. ${a.action} ${a.text.take(40)}${a.path.take(40)}${if (a.id > 0) " #${a.id}" else ""}", res)
-            if (trail.size > 20) trail.removeAt(0)
-            // wait for a touch to finish before looking at the screen again
-            val pause = when {
-                a.action == "open_app" || a.action == "open_url" -> 1500L
-                game -> when (a.action) {
-                    "hold", "swipe" -> a.ms + 150L
-                    "gesture" -> (a.strokes().maxOfOrNull { it.ms } ?: 300L) + 150L
-                    else -> 350L
+            val objs = json.optJSONArray("actions")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it) } }?.takeIf { it.isNotEmpty() } ?: listOf(json)
+            val topThought = json.optString("thought")
+            var first = true
+            for (o in objs.take(6)) {
+                val a = Act(o).scaled(scale)
+                if (a.action == "done") return AgentResult(a.say.ifBlank { "Done." }, controls.values.toList())
+                if (first) {
+                    val sig = a.action + a.text + a.path + a.name + a.id + a.old
+                    repeats = if (sig == lastSig) repeats + 1 else 0
+                    lastSig = sig
+                    if (!game && repeats >= 1) {
+                        if (repeats >= 3) return AgentResult("I got stuck repeating the same step.", controls.values.toList())
+                        trail += Entry("${step + 1}. ${a.action}", "You already did this. Do the next step of the task or finish.")
+                        continue@loop
+                    }
                 }
-                else -> 600L
+                val thought = a.thought.ifBlank { if (first) topThought else "" }
+                if (thought.isNotBlank()) ui.thought(thought)
+                first = false
+                val n = ui.begin(describe(a, svc), inputOf(a))
+                val res = withContext(Dispatchers.IO) { DeviceActions.execute(ctx, a) }
+                val ok = !(res.startsWith("Blocked") || res.startsWith("Failed") || res.startsWith("Shizuku") || res.contains("is off") || res.startsWith("Unknown")
+                    || res.startsWith("Path not allowed") || res.startsWith("Missing") || res.startsWith("No installed"))
+                ui.end(n, ok, res.take(1500))
+                if (ok) DeviceActions.controlFor(a)?.let { controls[it.type] = it }
+                trail += Entry("${step + 1}. ${a.action} ${a.text.take(40)}${a.path.take(40)}${if (a.id > 0) " #${a.id}" else ""}", res)
+                if (trail.size > 20) trail.removeAt(0)
+                if (!ok) break
+                // wait only as long as the screen needs
+                when {
+                    game -> delay((when (a.action) {
+                        "hold", "swipe" -> a.ms + 150L
+                        "gesture" -> (a.strokes().maxOfOrNull { it.ms } ?: 300L) + 150L
+                        else -> 350L
+                    }).coerceIn(100L, 9000L))
+                    a.action == "open_app" || a.action == "open_url" -> settle(500, 2500)
+                    a.action in uiActions -> settle(250, 1500)
+                }
+                if (a.action == "tap" && a.id > 0) break   // ids are out of date after a tap
             }
-            delay(pause.coerceIn(100L, 9000L))
         }
         return AgentResult("I stopped after $maxSteps steps. Ask me to continue if you want.", controls.values.toList())
     }

@@ -44,8 +44,7 @@ import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
 private val ColorModes = listOf("System", "Light", "Dark", "Monet system", "Monet light", "Monet dark")
-private val NavStyles = listOf("Liquid glass", "Split", "Floating", "Classic")
-private val Designs = listOf("Miuix", "Liquid glass")
+private val Designs = listOf("Miuix", "Liquid glass", "One UI")
 private val NavModes = listOf("Icon and text", "Icon only", "Icon with selected label")
 private val NavPositions = listOf("Center", "Start", "End")
 private val Palettes = ThemePaletteStyle.entries.map { it.name }
@@ -87,13 +86,13 @@ private fun addTile(ctx: Context) {
 
 @Composable
 private fun Field(value: String, onChange: (String) -> Unit, label: String, secret: Boolean = false) {
-    TextField(value, onChange, Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), label = label, singleLine = true,
-        visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None)
+    Input(value, onChange, Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), label = label, singleLine = true, secret = secret)
 }
 
 @Composable
 fun SettingsScreen(padding: PaddingValues) {
     val ctx = LocalContext.current
+    val design = LocalDesign.current
     val prefs = BixbyEngine.prefs
     val look by BixbyEngine.look.collectAsState()
     var tick by remember { mutableIntStateOf(0) }
@@ -133,14 +132,14 @@ fun SettingsScreen(padding: PaddingValues) {
     Page("Settings", padding, subtitle = "v$version") {
         // ---- AI provider
         item { Stagger(0) { Column {
-            SmallTitle("AI provider")
+            Section("AI provider")
             Group {
-                OverlayDropdownPreference(Provider.entries.map { it.label }, provider.ordinal, "Provider",
+                PrefDropdown(Provider.entries.map { it.label }, provider.ordinal, "Provider",
                     onSelectedIndexChange = { provider = Provider.entries[it]; prefs.provider = provider })
                 if (provider == Provider.CUSTOM) Field(url, { url = it }, "Base URL (OpenAI compatible)")
                 Field(apiKey, { apiKey = it }, "${provider.label} API key", secret = true)
                 Field(model, { model = it }, "Model")
-                if (models.isNotEmpty()) OverlayDropdownPreference(models.take(80), models.indexOf(model).coerceAtLeast(0), "Available models",
+                if (models.isNotEmpty()) PrefDropdown(models.take(80), models.indexOf(model).coerceAtLeast(0), "Available models",
                     onSelectedIndexChange = { model = models[it] })
                 Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemedButton("Fetch models", { saveAi(); scope.launch {
@@ -156,13 +155,13 @@ fun SettingsScreen(padding: PaddingValues) {
 
         // ---- Voice
         item { Stagger(1) { Column {
-            SmallTitle("Voice")
+            Section("Voice")
             Group {
                 Field(fishKey, { fishKey = it }, "Fish Audio API key", secret = true)
                 Field(fishVoice, { fishVoice = it }, "Voice model ID (optional)")
-                OverlayDropdownPreference(FishModels, fishModel, "Voice model", onSelectedIndexChange = { fishModel = it; prefs.fishModel = FishModels[it] })
-                OverlayDropdownPreference(Engines, tts, "Speech output", onSelectedIndexChange = { tts = it; saveVoice() })
-                OverlayDropdownPreference(Engines, stt, "Speech input", onSelectedIndexChange = { stt = it; saveVoice() })
+                PrefDropdown(FishModels, fishModel, "Voice model", onSelectedIndexChange = { fishModel = it; prefs.fishModel = FishModels[it] })
+                PrefDropdown(Engines, tts, "Speech output", onSelectedIndexChange = { tts = it; saveVoice() })
+                PrefDropdown(Engines, stt, "Speech input", onSelectedIndexChange = { stt = it; saveVoice() })
                 ThemedSwitch(speak, { speak = it; prefs.speak = it }, "Speak replies")
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemedButton("Save", { saveVoice(); BixbyEngine.notify("Saved") }, Modifier.weight(1f))
@@ -176,55 +175,46 @@ fun SettingsScreen(padding: PaddingValues) {
             }
         } } }
 
-        // ---- Appearance (same options as the Miuix demo)
+        // ---- Appearance
         item { Stagger(2) { Column {
-            SmallTitle("Appearance")
+            Section("Appearance")
             Group {
-                OverlayDropdownPreference(Designs, look.design, "Design", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(design = i) } })
-                OverlayDropdownPreference(ColorModes, look.colorMode, "Color mode", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(colorMode = it) } })
-                AnimatedVisibility(monet) {
-                    OverlayDropdownPreference(KeyNames, look.seed, "Key color", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(seed = it) } })
-                }
-                AnimatedVisibility(monet && look.seed > 0) {
-                    Column {
-                        OverlayDropdownPreference(Palettes, look.palette, "Palette style", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(palette = it) } })
-                        OverlayDropdownPreference(Specs, look.spec, "Color spec", onSelectedIndexChange = { BixbyEngine.updateLook { l -> l.copy(spec = it) } })
+                PrefDropdown(Designs, design.ordinal, "Design", onSelectedIndexChange = { i ->
+                    if (i != design.ordinal) { BixbyEngine.updateLook { l -> l.copy(design = i) }; (ctx as? android.app.Activity)?.recreate() } })
+                val modes = if (design == Design.Miuix) ColorModes else ColorModes.take(3)
+                PrefDropdown(modes, look.colorMode.coerceIn(0, modes.lastIndex), "Color mode", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(colorMode = i) } })
+                if (design == Design.Miuix) {
+                    if (monet) PrefDropdown(KeyNames, look.seed, "Key color", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(seed = i) } })
+                    if (monet && look.seed > 0) {
+                        PrefDropdown(Palettes, look.palette, "Palette style", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(palette = i) } })
+                        PrefDropdown(Specs, look.spec, "Color spec", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(spec = i) } })
                     }
+                    if (blurOk) ThemedSwitch(look.blur, { BixbyEngine.updateLook { l -> l.copy(blur = it) } }, "Blur effects", summary = "Top bar and tab bar")
+                    if (blurOk && look.blur) ThemedSwitch(look.progressive, { BixbyEngine.updateLook { l -> l.copy(progressive = it) } }, "Progressive blur", summary = "Top bar")
+                    ThemedSwitch(look.scrollHaptic, { BixbyEngine.updateLook { l -> l.copy(scrollHaptic = it) } }, "Scroll end haptic")
                 }
-                OverlayDropdownPreference(NavStyles, look.navStyle, "Navigation bar style", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navStyle = i) } })
-                AnimatedVisibility(look.navStyle == 2) {
-                    OverlayDropdownPreference(NavPositions, look.navPosition, "Navigation bar position", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navPosition = i) } })
-                }
-                AnimatedVisibility(look.navStyle == 3) {
-                    OverlayDropdownPreference(NavModes, look.navMode, "Navigation bar mode", onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navMode = i) } })
-                }
-                AnimatedVisibility(blurOk) {
-                    ThemedSwitch(look.blur, { BixbyEngine.updateLook { l -> l.copy(blur = it) } }, "Blur effects", summary = "Top bar and tab bar")
-                }
-                AnimatedVisibility(blurOk && look.blur) {
-                    ThemedSwitch(look.progressive, { BixbyEngine.updateLook { l -> l.copy(progressive = it) } }, "Progressive blur", summary = "Top bar")
-                }
-                ThemedSwitch(look.scrollHaptic, { BixbyEngine.updateLook { l -> l.copy(scrollHaptic = it) } }, "Scroll end haptic")
+                if (design == Design.Glass) PrefDropdown(listOf("Liquid tabs", "Split"), look.navStyle.coerceIn(0, 1), "Tab bar",
+                    onSelectedIndexChange = { i -> BixbyEngine.updateLook { l -> l.copy(navStyle = i) } })
             }
         } } }
 
         // ---- Summon
         item { Stagger(3) { Column {
-            SmallTitle("Summon Bixby")
+            Section("Summon Bixby")
             key(tick) { Group {
                 val isDef = isDefaultAssistant(ctx)
-                ArrowPreference("Default digital assistant", summary = if (isDef) "Bixby is selected" else "Choose Bixby",
+                Pref("Default digital assistant", summary = if (isDef) "Bixby is selected" else "Choose Bixby",
                     onClick = { go(ctx, Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }, endActions = { StatusText(isDef, "Set", "Not set") })
-                ArrowPreference("Power button", summary = "Set long-press to the assistant, not Xiao AI. Additional settings, Button shortcuts.",
+                Pref("Power button", summary = "Set long-press to the assistant, not Xiao AI. Additional settings, Button shortcuts.",
                     onClick = { Toast.makeText(ctx, "Additional settings > Button shortcuts > long-press power", Toast.LENGTH_LONG).show(); go(ctx, Intent(Settings.ACTION_SETTINGS)) })
-                ArrowPreference("Quick Settings tile", summary = "Add a Bixby tile", onClick = { addTile(ctx) })
+                Pref("Quick Settings tile", summary = "Add a Bixby tile", onClick = { addTile(ctx) })
                 ThemedSwitch(vol, { vol = it; prefs.volumeCombo = it }, "Volume keys", summary = "Volume up and down together. Needs screen control.")
             } }
         } } }
 
         // ---- Permissions
         item { Stagger(4) { Column {
-            SmallTitle("Permissions")
+            Section("Permissions")
             key(tick) { Group {
                 val a11y = AgentAccessibilityService.running()
                 val overlay = Settings.canDrawOverlays(ctx)
@@ -233,7 +223,7 @@ fun SettingsScreen(padding: PaddingValues) {
                 val shizuku = ShizukuShell.granted()
                 val write = Settings.System.canWrite(ctx)
                 val missing = Permissions.missing(ctx)
-                ArrowPreference("Grant with Shizuku", summary = if (missing.isEmpty()) "Everything is granted" else "Missing: " + missing.joinToString(),
+                Pref("Grant with Shizuku", summary = if (missing.isEmpty()) "Everything is granted" else "Missing: " + missing.joinToString(),
                     onClick = {
                         if (!ShizukuShell.granted()) { if (ShizukuShell.running()) ShizukuShell.request() else go(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))) }
                         else scope.launch {
@@ -241,27 +231,27 @@ fun SettingsScreen(padding: PaddingValues) {
                             BixbyEngine.notify(if (d.isEmpty()) "Nothing changed" else "Granted: " + d.joinToString()); tick++
                         }
                     }, endActions = { StatusText(missing.isEmpty(), "Done", if (ShizukuShell.granted()) "Grant" else "Needs Shizuku") })
-                ArrowPreference("Screen control", summary = "Accessibility service", onClick = { go(ctx, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, endActions = { StatusText(a11y) })
-                ArrowPreference("Display over other apps", onClick = { go(ctx, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(overlay) })
-                ArrowPreference("Microphone", onClick = { go(ctx, appDetails(ctx)) }, endActions = { StatusText(mic) })
-                ArrowPreference("All files access", summary = "For files outside the workspace", onClick = {
+                Pref("Screen control", summary = "Accessibility service", onClick = { go(ctx, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, endActions = { StatusText(a11y) })
+                Pref("Display over other apps", onClick = { go(ctx, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(overlay) })
+                Pref("Microphone", onClick = { go(ctx, appDetails(ctx)) }, endActions = { StatusText(mic) })
+                Pref("All files access", summary = "For files outside the workspace", onClick = {
                     if (Build.VERSION.SDK_INT >= 30) go(ctx, Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(files) })
-                ArrowPreference("Shizuku", summary = if (ShizukuShell.running()) "Running" else "Not running", onClick = {
+                Pref("Shizuku", summary = if (ShizukuShell.running()) "Running" else "Not running", onClick = {
                     if (ShizukuShell.running()) { ShizukuShell.request(); tick++ } else go(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))) }, endActions = { StatusText(shizuku) })
-                ArrowPreference("Modify system settings", onClick = { go(ctx, Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(write) })
+                Pref("Modify system settings", onClick = { go(ctx, Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }, endActions = { StatusText(write) })
                 val notif = NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName)
                 val cal = ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
-                ArrowPreference("Notification access", summary = "Lets Bixby read and summarize notifications", onClick = { go(ctx, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }, endActions = { StatusText(notif) })
-                ArrowPreference("Calendar", summary = "Lets Bixby read your events", onClick = { go(ctx, appDetails(ctx)) }, endActions = { StatusText(cal) })
-                ArrowPreference("Autostart and battery", summary = "Autostart on, battery set to No restrictions", onClick = { openXiaomi(ctx) })
+                Pref("Notification access", summary = "Lets Bixby read and summarize notifications", onClick = { go(ctx, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }, endActions = { StatusText(notif) })
+                Pref("Calendar", summary = "Lets Bixby read your events", onClick = { go(ctx, appDetails(ctx)) }, endActions = { StatusText(cal) })
+                Pref("Autostart and battery", summary = "Autostart on, battery set to No restrictions", onClick = { openXiaomi(ctx) })
             } }
         } } }
 
         // ---- Behavior
         item { Stagger(5) { Column {
-            SmallTitle("Behavior")
+            Section("Behavior")
             Group {
-                OverlayDropdownPreference(VisionModes, vision, "Screenshots for the model", onSelectedIndexChange = { vision = it; prefs.vision = it })
+                PrefDropdown(VisionModes, vision, "Screenshots for the model", onSelectedIndexChange = { vision = it; prefs.vision = it })
                 Text("Games, and apps with no readable screen, need a model that can see images, such as Claude, GPT-4o or Gemini.", Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1)
                 ThemedSwitch(orb, { orb = it; prefs.orbEnabled = it; if (it) OverlayService.start(ctx) else OverlayService.stop(ctx) }, "Floating icon", summary = "Show Bixby over other apps")
                 ThemedSwitch(gesture, { gesture = it; prefs.gestureWake = it; if (orb) { OverlayService.stop(ctx); OverlayService.start(ctx) } },

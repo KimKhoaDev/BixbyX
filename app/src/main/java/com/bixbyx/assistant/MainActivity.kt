@@ -12,6 +12,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -97,7 +100,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun Root() {
     val activity = LocalContext.current as ComponentActivity
-    val look by BixbyEngine.look.collectAsState()
     val dark = isDark()
     LaunchedEffect(dark) {
         activity.enableEdgeToEdge(
@@ -109,51 +111,92 @@ private fun Root() {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(tab != 0) { tab = 0 }
     val imeUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    when (LocalDesign.current) {
+        Design.Miuix -> MiuixRoot(tabs, tab, { tab = it }, imeUp, dark)
+        Design.Glass -> GlassRoot(tabs, tab, { tab = it }, imeUp)
+        Design.One -> OneRoot(tabs, tab, { tab = it }, imeUp)
+    }
+}
 
+@Composable
+private fun Pages(tab: Int, onTab: (Int) -> Unit, padding: PaddingValues) {
+    AnimatedContent(tab, transitionSpec = {
+        val dir = if (targetState > initialState) 1 else -1
+        (fadeIn(tween(240)) + slideInHorizontally(tween(280)) { dir * it / 10 }) togetherWith (fadeOut(tween(120)) + slideOutHorizontally(tween(280)) { -dir * it / 10 })
+    }, label = "tabs") { t ->
+        when (t) {
+            0 -> HomeScreen(padding)
+            1 -> ChatsScreen(padding) { onTab(0) }
+            2 -> ToolsScreen(padding)
+            3 -> SettingsScreen(padding)
+            else -> AboutScreen(padding)
+        }
+    }
+}
+
+/** Miuix: floating tab bar over blurred content. */
+@Composable
+private fun MiuixRoot(tabs: List<TabItem>, tab: Int, onTab: (Int) -> Unit, imeUp: Boolean, dark: Boolean) {
+    val look by BixbyEngine.look.collectAsState()
     val c = MiuixTheme.colorScheme
-    val glass = rememberGlassBackdrop { drawRect(c.background); drawContent() }
     val blur = if (look.blur && isRuntimeShaderSupported()) rememberBlurBackdrop { drawRect(c.surface); drawContent() } else null
     val floatShape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
     val highlight = if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-
     Scaffold(bottomBar = {
         AnimatedVisibility(!imeUp, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-            when (look.navStyle) {
-                0 -> LiquidBottomTabs(selectedTabIndex = { tab }, onTabSelected = { tab = it }, backdrop = glass, tabsCount = tabs.size,
-                    modifier = Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
-                    tabs.forEachIndexed { i, t ->
-                        LiquidBottomTab({ tab = i }) {
-                            Icon(t.icon, t.label, Modifier.size(24.dp), tint = c.onSurface)
-                            Text(t.label, fontSize = 11.sp, color = c.onSurface)
-                        }
-                    }
-                }
-                1 -> SplitBar(tabs, tab, { tab = it }, glass, { BixbyEngine.newChat(); tab = 0 }, { tab = 0; BixbyEngine.listen() },
-                    Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp))
-                2 -> FloatingNavigationBar(
-                    modifier = if (blur != null) Modifier.textureBlur(blur, floatShape, 25f,
-                        colors = BlurDefaults.blurColors(blendColors = listOf(BlendColorEntry(color = c.surfaceContainer.copy(alpha = .6f)))), highlight = highlight) else Modifier,
-                    color = if (blur != null) androidx.compose.ui.graphics.Color.Transparent else c.surfaceContainer,
-                    horizontalAlignment = when (look.navPosition) { 1 -> Alignment.Start; 2 -> Alignment.End; else -> Alignment.CenterHorizontally }) {
-                    tabs.forEachIndexed { i, t -> FloatingNavigationBarItem(selected = tab == i, onClick = { tab = i }, icon = t.icon, label = t.label) }
-                }
-                else -> NavigationBar(mode = NavigationBarDisplayMode.entries.getOrElse(look.navMode) { NavigationBarDisplayMode.IconAndText }) {
-                    tabs.forEachIndexed { i, t -> NavigationBarItem(selected = tab == i, onClick = { tab = i }, icon = t.icon, label = t.label) }
-                }
+            FloatingNavigationBar(
+                modifier = if (blur != null) Modifier.textureBlur(blur, floatShape, 25f,
+                    colors = BlurDefaults.blurColors(blendColors = listOf(BlendColorEntry(color = c.surfaceContainer.copy(alpha = .6f)))), highlight = highlight) else Modifier,
+                color = if (blur != null) androidx.compose.ui.graphics.Color.Transparent else c.surfaceContainer) {
+                tabs.forEachIndexed { i, t -> FloatingNavigationBarItem(selected = tab == i, onClick = { onTab(i) }, icon = t.icon, label = t.label) }
             }
         }
     }) { padding ->
-        Box(Modifier.fillMaxSize().glassLayer(glass).then(if (blur != null) Modifier.blurLayer(blur) else Modifier)) {
-            AnimatedContent(tab, transitionSpec = {
-                val dir = if (targetState > initialState) 1 else -1
-                (fadeIn(tween(240)) + slideInHorizontally(tween(280)) { dir * it / 10 }) togetherWith (fadeOut(tween(120)) + slideOutHorizontally(tween(280)) { -dir * it / 10 })
-            }, label = "tabs") { t ->
-                when (t) {
-                    0 -> HomeScreen(padding)
-                    1 -> ChatsScreen(padding) { tab = 0 }
-                    2 -> ToolsScreen(padding)
-                    3 -> SettingsScreen(padding)
-                    else -> AboutScreen(padding)
+        Box(Modifier.fillMaxSize().then(if (blur != null) Modifier.blurLayer(blur) else Modifier)) { Pages(tab, onTab, padding) }
+    }
+}
+
+/** Liquid glass: glass tab bar floating over the pages. */
+@Composable
+private fun GlassRoot(tabs: List<TabItem>, tab: Int, onTab: (Int) -> Unit, imeUp: Boolean) {
+    val look by BixbyEngine.look.collectAsState()
+    val c = MiuixTheme.colorScheme
+    val glass = rememberGlassBackdrop { drawRect(c.background); drawContent() }
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().glassLayer(glass)) { Pages(tab, onTab, PaddingValues(bottom = 96.dp + navInset)) }
+        AnimatedVisibility(!imeUp, Modifier.align(Alignment.BottomCenter), enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+            if (look.navStyle == 1) SplitBar(tabs, tab, onTab, glass, { BixbyEngine.newChat(); onTab(0) }, { onTab(0); BixbyEngine.listen() },
+                Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp))
+            else LiquidBottomTabs(selectedTabIndex = { tab }, onTabSelected = onTab, backdrop = glass, tabsCount = tabs.size,
+                modifier = Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                tabs.forEachIndexed { i, t ->
+                    LiquidBottomTab({ onTab(i) }) {
+                        Icon(t.icon, t.label, Modifier.size(24.dp), tint = c.onSurface)
+                        Text(t.label, fontSize = 11.sp, color = c.onSurface)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One UI: flat bottom bar with a soft pill behind the selected tab. */
+@Composable
+private fun OneRoot(tabs: List<TabItem>, tab: Int, onTab: (Int) -> Unit, imeUp: Boolean) {
+    val c = MiuixTheme.colorScheme
+    Column(Modifier.fillMaxSize().background(c.background)) {
+        Box(Modifier.weight(1f)) { Pages(tab, onTab, PaddingValues()) }
+        AnimatedVisibility(!imeUp) {
+            Row(Modifier.fillMaxWidth().background(c.surfaceContainer).navigationBarsPadding().height(64.dp)) {
+                tabs.forEachIndexed { i, t ->
+                    val sel = i == tab
+                    Column(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onTab(i) }.padding(top = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.clip(RoundedCornerShape(50)).background(if (sel) c.primary.copy(alpha = .14f) else androidx.compose.ui.graphics.Color.Transparent)
+                            .padding(horizontal = 18.dp, vertical = 4.dp)) { Icon(t.icon, t.label, tint = if (sel) c.primary else c.onSurfaceVariantActions) }
+                        Text(t.label, fontSize = 11.sp, color = if (sel) c.primary else c.onSurfaceVariantSummary, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
+                    }
                 }
             }
         }

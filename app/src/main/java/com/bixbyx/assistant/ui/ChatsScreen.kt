@@ -48,8 +48,8 @@ fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
 
     Page("Chats", padding, actions = { IconButton({ BixbyEngine.newChat(); onOpen() }) { Icon(MiuixIcons.Add, "New chat") } }) {
         item {
-            TextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
-                label = "Search chats", useLabelAsPlaceholder = true, singleLine = true)
+            Input(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
+                label = "Search chats", singleLine = true)
         }
         if (shown.isEmpty()) item {
             Text("No chats", Modifier.fillMaxWidth().padding(24.dp), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
@@ -57,7 +57,7 @@ fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
         itemsIndexed(shown, key = { _, c -> c.id }) { _, c ->
             Panel(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 onClick = { BixbyEngine.openChat(c.id); onOpen() }, onLongPress = { menu = c }) {
-                BasicComponent(title = c.title, summary = c.messages.lastOrNull()?.text?.take(90) ?: "Empty chat", endActions = {
+                Pref(title = c.title, summary = c.messages.lastOrNull()?.text?.take(90) ?: "Empty chat", endActions = {
                     Text(if (c.id == cur) "Open" else relTime(c.updated), color = if (c.id == cur) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         style = MiuixTheme.textStyles.footnote1)
                     IconButton({ menu = c }) { Icon(MiuixIcons.More, "More", tint = MiuixTheme.colorScheme.onSurfaceVariantActions) }
@@ -66,23 +66,23 @@ fun ChatsScreen(padding: PaddingValues, onOpen: () -> Unit) {
         }
     }
 
-    OverlayDialog(show = menu != null, title = menu?.title, onDismissRequest = { menu = null }) {
+    AppDialog(show = menu != null, title = menu?.title, onDismissRequest = { menu = null }) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton("Rename", { renaming = menu; menu = null }, Modifier.weight(1f))
-            TextButton("Share", {
+            TextAction("Rename", { renaming = menu; menu = null }, Modifier.weight(1f))
+            TextAction("Share", {
                 menu?.let { c -> Tools.share(ctx, "# ${c.title}\n\n" + c.messages.joinToString("\n\n") { (if (it.user) "**You:** " else "**Bixby:** ") + it.text }) }
                 menu = null }, Modifier.weight(1f))
-            TextButton("Delete", { menu?.let { BixbyEngine.deleteChat(it.id) }; menu = null }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+            TextAction("Delete", { menu?.let { BixbyEngine.deleteChat(it.id) }; menu = null }, Modifier.weight(1f), primary = true)
         }
     }
     val r = renaming
     var name by remember(r?.id) { mutableStateOf(r?.title ?: "") }
-    OverlayDialog(show = r != null, title = "Rename chat", onDismissRequest = { renaming = null }) {
-        TextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true)
+    AppDialog(show = r != null, title = "Rename chat", onDismissRequest = { renaming = null }) {
+        Input(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true)
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton("Cancel", { renaming = null }, Modifier.weight(1f))
-            TextButton("Save", { r?.let { BixbyEngine.renameChat(it.id, name) }; renaming = null }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+            TextAction("Cancel", { renaming = null }, Modifier.weight(1f))
+            TextAction("Save", { r?.let { BixbyEngine.renameChat(it.id, name) }; renaming = null }, Modifier.weight(1f), primary = true)
         }
     }
 }

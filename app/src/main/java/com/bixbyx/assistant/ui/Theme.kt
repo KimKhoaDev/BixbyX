@@ -7,7 +7,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.bixbyx.assistant.agent.BixbyEngine
+import androidx.compose.runtime.CompositionLocalProvider
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.darkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemeController
@@ -25,15 +28,24 @@ val KeyColors: List<Pair<String, Color>> = listOf(
     "Yellow" to Color(0xFFFFB21D), "Orange" to Color(0xFFFF5722), "Pink" to Color(0xFFE91E63), "Teal" to Color(0xFF00BCD4),
 )
 
-/** Miuix theme driven by the appearance settings. */
+private val OneLight = lightColorScheme(primary = Color(0xFF1C5FD6), onPrimary = Color.White, background = Color(0xFFF6F6F6), surface = Color.White,
+    surfaceContainer = Color.White, onSurface = Color(0xFF111111), onSurfaceVariantSummary = Color(0xFF5E5E5E), onSurfaceVariantActions = Color(0xFF3D3D3D))
+private val OneDark = darkColorScheme(primary = Color(0xFF8FB4FF), onPrimary = Color(0xFF0A1F44), background = Color.Black, surface = Color(0xFF1C1C1E),
+    surfaceContainer = Color(0xFF252528), onSurface = Color.White, onSurfaceVariantSummary = Color(0xFFB4B4B8), onSurfaceVariantActions = Color(0xFFD0D0D4))
+
+/** Theme for the chosen design. The design is read once, so changing it restarts the app. */
 @Composable
 fun BixbyTheme(content: @Composable () -> Unit) {
     val look by BixbyEngine.look.collectAsState()
+    val design = remember { Design.entries.getOrElse(BixbyEngine.look.value.design) { Design.Miuix } }
     val spec = ThemeColorSpec.entries.getOrNull(look.spec) ?: ThemeColorSpec.Spec2021
     val style = ThemePaletteStyle.entries.getOrNull(look.palette) ?: ThemePaletteStyle.TonalSpot
     val key = if (look.seed > 0) KeyColors.getOrNull(look.seed - 1)?.second else null
-    val controller = remember(look.colorMode, key, spec, style) {
-        when (look.colorMode) {
+    val controller = remember(look.colorMode, key, spec, style, design) {
+        if (design != Design.Miuix) {
+            val mode = when (look.colorMode) { 1 -> ColorSchemeMode.Light; 2 -> ColorSchemeMode.Dark; else -> ColorSchemeMode.System }
+            ThemeController(mode, lightColors = if (design == Design.One) OneLight else lightColorScheme(), darkColors = if (design == Design.One) OneDark else darkColorScheme())
+        } else when (look.colorMode) {
             1 -> ThemeController(ColorSchemeMode.Light)
             2 -> ThemeController(ColorSchemeMode.Dark)
             3 -> ThemeController(ColorSchemeMode.MonetSystem, keyColor = key, colorSpec = spec, paletteStyle = style)
@@ -42,7 +54,7 @@ fun BixbyTheme(content: @Composable () -> Unit) {
             else -> ThemeController(ColorSchemeMode.System)
         }
     }
-    MiuixTheme(controller = controller, content = content)
+    CompositionLocalProvider(LocalDesign provides design) { MiuixTheme(controller = controller, content = content) }
 }
 
 @Composable

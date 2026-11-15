@@ -54,11 +54,34 @@ class Speaker(private val ctx: Context, private val prefs: Prefs) {
         val text = raw.replace(Regex("[*_`#>]"), "").trim()
         if (text.isBlank()) return
         if (prefs.useFishTts) {
-            try { play(FishAudio.tts(prefs, text)); return }
+            try { speakFish(text); return }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { BixbyEngine.voiceError.value = "Fish Audio ${e.message}"; BixbyEngine.notify("Fish Audio failed, using the phone voice") }
         }
         speakSystem(text)
+    }
+
+    private fun chunks(text: String): List<String> {
+        val out = ArrayList<String>()
+        var cur = StringBuilder()
+        for (p in text.split(Regex("(?<=[.!?\\n])\\s+")).filter { it.isNotBlank() }) {
+            val limit = if (out.isEmpty()) 120 else 240
+            if (cur.isNotEmpty() && cur.length + p.length > limit) { out += cur.toString().trim(); cur = StringBuilder() }
+            cur.append(p).append(' ')
+        }
+        if (cur.isNotBlank()) out += cur.toString().trim()
+        return out.ifEmpty { listOf(text) }
+    }
+
+    /** The first short sentence is synthesised and played at once while the next one is being made. */
+    private suspend fun speakFish(text: String) = coroutineScope {
+        val parts = chunks(text)
+        var next = async { FishAudio.tts(prefs, parts[0]) }
+        for (i in parts.indices) {
+            val bytes = next.await()
+            if (i + 1 < parts.size) next = async { FishAudio.tts(prefs, parts[i + 1]) }
+            play(bytes)
+        }
     }
 
     /** Plays one phrase and reports what happened. */

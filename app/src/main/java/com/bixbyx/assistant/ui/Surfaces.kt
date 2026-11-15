@@ -46,7 +46,7 @@ fun GlassWallpaper(modifier: Modifier = Modifier) {
     }
 }
 
-/** A card. Miuix design: the Miuix Card. Liquid glass design: a glass panel over the wallpaper. */
+/** A card, drawn the way the active design draws it. */
 @Composable
 fun Panel(
     modifier: Modifier = Modifier,
@@ -54,19 +54,22 @@ fun Panel(
     onLongPress: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val design = LocalDesign.current
     val wall = LocalWall.current
     val c = MiuixTheme.colorScheme
-    if (wall == null) {
+    if (design == Design.Miuix) {
         if (onClick != null) Card(modifier, showIndication = true, onClick = onClick, onLongPress = onLongPress, content = content)
         else Card(modifier, content = content)
-    } else {
-        val shape = RoundedCornerShape(22.dp)
-        val base = modifier.drawBackdrop(wall, { shape },
-            effects = { vibrancy(); blur(10.dp.toPx()); lens(10.dp.toPx(), 18.dp.toPx()) },
-            onDrawSurface = { drawRect(c.surfaceContainer.copy(alpha = .5f)) })
-        val tap = if (onClick != null) base.clip(shape).pointerInput(onClick, onLongPress) {
-            detectTapGestures(onLongPress = { onLongPress?.invoke() }, onTap = { onClick() })
-        } else base
-        Column(tap, content = content)
+        return
     }
+    val glass = design == Design.Glass && wall != null
+    val shape = RoundedCornerShape(if (design == Design.One) 26.dp else 22.dp)
+    val base = if (glass) modifier.drawBackdrop(wall!!, { shape },
+        effects = { vibrancy(); blur(10.dp.toPx()); lens(10.dp.toPx(), 18.dp.toPx()) },
+        onDrawSurface = { drawRect(c.surfaceContainer.copy(alpha = .5f)) })
+    else modifier.clip(shape).background(c.surfaceContainer)
+    val tap = if (onClick != null) base.clip(shape).pointerInput(onClick, onLongPress) {
+        detectTapGestures(onLongPress = { onLongPress?.invoke() }, onTap = { onClick() })
+    } else base
+    Column(tap, content = content)
 }

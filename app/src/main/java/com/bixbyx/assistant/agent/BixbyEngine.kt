@@ -38,6 +38,8 @@ object BixbyEngine {
     val level = MutableStateFlow(0f)
     val panelOpen = MutableStateFlow(false)
     val voiceError = MutableStateFlow("")
+    /** The reply as it streams in, before it is final. */
+    val draft = MutableStateFlow("")
     /** Text picked in another app ("Ask Bixby" in the text menu, or shared to Bixby). */
     val pendingText = MutableStateFlow<String?>(null)
     /** Files picked for the next message. */
@@ -121,6 +123,10 @@ object BixbyEngine {
 
     private fun ui() = object : AgentUi {
         override fun thinking(text: String) { status.value = text; state.value = BState.Thinking }
+        override fun token(text: String) {
+            val t = text.trimStart()
+            draft.value = if (t.startsWith("{") || t.startsWith("```")) "" else text   // JSON is an action, not an answer
+        }
         override fun thought(text: String) {
             steps.value = (steps.value + Step(++stepN, StepKind.Thought, text, StepState.Done)).takeLast(40)
         }
@@ -148,13 +154,21 @@ object BixbyEngine {
         job = scope.launch {
             state.value = BState.Thinking
             try {
-                val r = AgentLoop(app, prefs).run(body, messages.value, ui(), att)
-                add(Msg(r.text, false, controls = r.controls, steps = steps.value)); steps.value = emptyList()
-                if (prefs.haptics) Haptics.click(app)
-                if (prefs.speak) voice.speak(r.text, interrupt = true)
+                val quick = if (att.isEmpty()) withContext(Dispatchers.IO) { QuickCommands.tryRun(app, body) } else null
+                if (quick != null) {
+                    add(Msg(quick.text, false, controls = quick.controls, steps = quick.steps))
+                    if (prefs.haptics) Haptics.click(app)
+                    if (prefs.speak) voice.speak(quick.text, interrupt = true)
+                } else {
+                    val r = AgentLoop(app, prefs).run(body, messages.value, ui(), att)
+                    draft.value = ""
+                    add(Msg(r.text, false, controls = r.controls, steps = steps.value)); steps.value = emptyList()
+                    if (prefs.haptics) Haptics.click(app)
+                    if (prefs.speak) voice.speak(r.text, interrupt = true)
+                }
             } catch (e: CancellationException) { add(Msg("Stopped.", false, steps = steps.value)); steps.value = emptyList(); throw e
             } catch (e: Exception) { add(Msg("Error: ${friendly(e)}", false, steps = steps.value)); steps.value = emptyList() }
-            finally { state.value = BState.Idle; status.value = "" }
+            finally { draft.value = ""; state.value = BState.Idle; status.value = "" }
         }
     }
 
@@ -204,6 +218,7 @@ object BixbyEngine {
     }
 
     fun listen() {
+        scope.launch { LlmClient.warmUp(prefs) }
         if (prefs.haptics) Haptics.tick(app)
         state.value = BState.Listening; partial.value = ""
         voice.listen(scope, { level.value = it }, { partial.value = it },

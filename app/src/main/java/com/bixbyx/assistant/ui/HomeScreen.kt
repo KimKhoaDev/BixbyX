@@ -21,8 +21,9 @@ fun HomeScreen(padding: PaddingValues) {
     val steps by BixbyEngine.steps.collectAsState()
     val chats by BixbyEngine.chats.collectAsState()
     val cur by BixbyEngine.currentId.collectAsState()
+    val draft by BixbyEngine.draft.collectAsState()
     val list = rememberLazyListState()
-    LaunchedEffect(msgs.size, steps.size) {
+    LaunchedEffect(msgs.size, steps.size, draft.length / 60) {
         val n = list.layoutInfo.totalItemsCount
         if (n > 0) list.animateScrollToItem(n - 1)
     }
@@ -43,5 +44,6 @@ fun HomeScreen(padding: PaddingValues) {
         if (msgs.isEmpty() && steps.isEmpty()) item { QuickChips() }
         messageItems(msgs.takeLast(60))
         if (steps.isNotEmpty()) item { ToolSteps(steps, running = state != com.bixbyx.assistant.agent.BState.Idle, defaultOpen = true) }
+        if (draft.isNotBlank()) item { DraftBubble(draft) }
     }
 }
